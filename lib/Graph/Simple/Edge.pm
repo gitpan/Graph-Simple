@@ -13,7 +13,7 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 
@@ -23,14 +23,23 @@ sub OBJ () { 'obj' };
 
 # The different celltypes for a path:
   
-sub EDGE_SHORT  { 0; }	# |->		a start/end at the same cell
-sub EDGE_START  { 1; }	# |--		starting-point
-sub EDGE_END    { 2; }	# -->		end-point
-sub EDGE_HOR    { 3; }	# --		horizontal line
-sub EDGE_VER    { 4; }	# |		vertical line
-sub EDGE_CROSS  { 5; }	# +		crossing lines
+sub EDGE_SHORT	{ 0; }	# |->		a start/end at the same cell
+sub EDGE_START	{ 1; }	# |--		starting-point
+sub EDGE_END	{ 2; }	# -->		end-point
+sub EDGE_HOR	{ 3; }	# --		horizontal line
+sub EDGE_VER	{ 4; }	# |		vertical line
+sub EDGE_CROSS	{ 5; }	# +		crossing lines
+sub EDGE_N_E	{ 6; }	# |_		corner (N to E)
+sub EDGE_N_W	{ 7; }	# _|		corner (N to W)
+sub EDGE_S_E	{ 8; }	# ,-		corner (S to E)
+sub EDGE_S_W	{ 9; }	# -,		corner (S to W)
 
-sub EDGE_MAX_TYPE () { 5; }	# last valid type
+sub EDGE_S_E_W	{ 10; }	# -,-		three-sided corner (S to W and S to E)
+sub EDGE_N_E_W	{ 11; }	# -'-		three-sided corner (N to W and N to E)
+sub EDGE_E_N_S	{ 12; }	# -|		three-sided corner (E to S and N)
+sub EDGE_W_N_S	{ 13; }	#  |-		three-sided corner (W to S and N)
+
+sub EDGE_MAX_TYPE () { 13; }	# last valid type
 
 @EXPORT_OK = qw/
   EDGE_SHORT
@@ -39,6 +48,14 @@ sub EDGE_MAX_TYPE () { 5; }	# last valid type
   EDGE_HOR
   EDGE_VER
   EDGE_CROSS
+  EDGE_N_E
+  EDGE_N_W
+  EDGE_S_E
+  EDGE_S_W
+  EDGE_N_E_W
+  EDGE_S_E_W
+  EDGE_W_N_S
+  EDGE_E_N_S
   /;
 
 #############################################################################
@@ -150,6 +167,16 @@ sub cells
   my $self = shift;
 
   $self->{cells};
+  }
+
+sub clear_cells
+  { 
+  # remove all belonging cells
+  my $self = shift;
+
+  $self->{cells} = {};
+
+  $self;
   }
 
 sub add_cell
@@ -283,6 +310,12 @@ as objects.
 
 Add a new cell at position C<$x> and C<$y> with type C<$type> to the edge.
 
+=head2 clear_cells()
+
+	$edge->clear_cells();
+
+Removes all belonging cells.
+
 =head2 cells()
 
 	my $cells = $edge->cells();
@@ -323,6 +356,23 @@ None by default. Can export the following on request:
 	EDGE_HOR
 	EDGE_VER
 	EDGE_CROSS
+	EDGE_N_E
+	EDGE_N_W
+	EDGE_S_E
+	EDGE_S_W
+	EDGE_N_E_W
+	EDGE_S_E_W
+	EDGE_W_N_S
+	EDGE_E_N_S
+
+=head1 TODO
+
+Different ASCII styles:
+
+   ,-----, 	       +-----+
+   | Foo | --,    vs.  | Foo |  --+
+   |_____|   |         +-----+    |
+	     |	                  |
 
 =head1 SEE ALSO
 

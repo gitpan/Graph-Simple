@@ -51,8 +51,10 @@ sub _init
 
   $self->{id} = new_id();		# get a new, unique ID
 
-  $self->{border} = '1px solid black';
   $self->{name} = 'Node #' . $self->{id};
+  # attributes
+  $self->{att} = { };
+  $self->{class} = 'node';		# default class
 
   # XXX TODO check arguments
   foreach my $k (keys %$args)
@@ -62,17 +64,7 @@ sub _init
   
   $self->{error} = '';
 
-  if (!defined $self->{w})
-    {
-    if ($self->{border} eq 'none')
-      {
-      $self->{w} = length($self->{name}) + 2;
-      }
-    else
-      {
-      $self->{w} = length($self->{name}) + 4;
-      }
-    }
+  # w can only be computed once we know our graph and our border style, so postpone it
   $self->{h} = 1 + 2 if !defined $self->{h};
   
   $self->{x} = 0;
@@ -82,8 +74,26 @@ sub _init
   $self->{in} = {};
   
   $self->{contains} = undef;
-  
+ 
   $self;
+  }
+
+sub _correct_w
+  {
+  my $self = shift;
+
+  if (!defined $self->{w})
+    {
+    my $border = $self->attribute('border') || 'none';
+    if ($border eq 'none')
+      {
+      $self->{w} = length($self->{name}) + 2;
+      }
+    else
+      {
+      $self->{w} = length($self->{name}) + 4;
+      }
+    }
   }
 
 sub id
@@ -99,7 +109,8 @@ sub as_ascii
 
   my $txt;
 
-  if ($self->{border} eq 'none')
+  my $border = $self->attribute('border') || 'none';
+  if ($border eq 'none')
     {
     # 'Sample'
     for my $l (split /\n/, $self->{name})
@@ -107,7 +118,7 @@ sub as_ascii
       $txt .= "$l\n";
       }
     }
-  elsif ($self->{border} =~ 'solid')
+  elsif ($border =~ 'solid')
     {
     # +--------+
     # | Sample |
@@ -153,14 +164,31 @@ sub as_txt
   # quote name
   $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
 
-  '[ ' .  $name . ' ]';
-  }
+  my $txt = '[ ' .  $name . ' ]';
 
-my $DEF = {
-    'text-align' => 'center',
-    'background' => 'white',
-    'border' => '1px solid black',
-  };
+  my $att = '';
+  my $class = $self->class();
+  my $a = $self->{att};
+  for my $atr (sort keys %$a)
+    {
+    # attribute not defined
+    next if !defined $a->{$atr};
+
+    # attribute defined, but same as default
+    my $DEF = $self->{graph}->attribute ($class, $atr);
+    next if defined $DEF && $a->{$atr} eq $DEF;
+
+    $att .= "$atr: $a->{$atr}; ";
+    }
+
+  # include our class as attribute, if it is a subclass
+  $att .= "class: $1;" if $class =~ /\.(\w+)/;
+ 
+  # append attributes to text if nec. 
+  $txt = $txt . ' { ' . $att . ' }' if $att ne '';
+
+  $txt;
+  }
 
 sub as_html
   {
@@ -171,24 +199,29 @@ sub as_html
 
   # return yourself as HTML
 
-  my $class = $self->{class} || 'node';
+  my $class = $self->class();
   my $html = "<$tag class='$class$id'";
   
   my $style = '';
-  for my $atr (qw/
-    border background color margin padding font-style font-weight text-align
-   /)
+  my $a = $self->{att};
+  for my $atr (sort keys %$a)
     {
     # attribute not defined
-    next if !defined $self->{$atr};
-    # attribute defined, but same as default
-    next if defined $DEF->{$atr} && $self->{$atr} eq $DEF->{$atr};
+    next if !defined $a->{$atr};
 
-    my $a = $self->{$atr};
-    $a = $DEF->{$atr} unless defined $a;
-    $style .= "$atr: $a; ";
+    # attribute defined, but same as default (or node not in a graph)
+    if (!defined $self->{graph})
+      {
+      print STDERR "Node $self->{name} is not associated with a graph!\n";
+      }
+    next unless defined $self->{graph};
+    
+    my $DEF = $self->{graph}->attribute ($class, $atr);
+    next if defined $DEF && $a->{$atr} eq $DEF;
+
+    $style .= "$atr: $a->{$atr}; ";
     }
-  $style =~ s/\s$//;				# remove last ' '
+  $style =~ s/;\s$//;				# remove '; ' at end
   $html .= " style=\"$style\"" if $style;
 
   my $name = $self->{name};
@@ -260,7 +293,7 @@ sub successors
   # return all nodes (as objects) we are linked to
   my $self = shift;
 
-  my $g = $self->{graph};
+  my $g = $self->{graph}->{graph};
   return () unless defined $g;
 
   my @s = $g->successors( $self->{name} );
@@ -278,7 +311,7 @@ sub predecessors
   # return all nodes (as objects) that link to us
   my $self = shift;
 
-  my $g = $self->{graph};
+  my $g = $self->{graph}->{graph};
   return () unless defined $g;
 
   my @p = $g->predecessors( $self->{name} );
@@ -289,6 +322,34 @@ sub predecessors
     push @N, $g->get_vertex_attribute( $pr, OBJ );
     }
   @N;
+  }
+
+sub class
+  {
+  my $self = shift;
+
+  $self->{class} || 'node';
+  }
+
+sub attribute
+  {
+  my ($self, $atr) = @_;
+
+  return $self->{att}->{$atr} if exists $self->{att}->{$atr};
+
+  # if we do not belong to a graph, we cannot inherit attributes
+  return unless defined $self->{graph};
+
+  my $class = $self->class();
+  
+  $self->{graph}->attribute ($self->{class} || 'node', $atr);
+  }
+
+sub set_attribute
+  {
+  my ($self, $atr, $val) = @_;
+  
+  $self->{att}->{$atr} = $val;
   }
 
 1;
@@ -378,6 +439,21 @@ The following:
 Would print something like:
 
 	<span class="node12"> Bonn </span>
+
+=head2 attribute()
+
+	$node->attribute('border');
+
+Returns the respective attribute of the node or undef if it
+was not set. If there is a default attribute for all nodes
+of the specific class the node is in, then this will be returned.
+
+=head2 set_attribute()
+
+	$node->set_attribute('border', 'none');
+
+Sets the specified attribute of this (and only this!) node to the
+specified value.
 
 =head2 name()
 

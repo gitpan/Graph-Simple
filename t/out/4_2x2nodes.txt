@@ -1,7 +1,7 @@
-# XXX TODO This does not look right yet:
-+---------+     +--------+
-| Hamburg | --> | Altona |
-+---------+     +--------+
-                          +-----------+     +-----+
-                          | Frankfurt | --> | Hof |
-                          +-----------+     +-----+
+# XXX TODO There should be a space between them
++---------+       +--------+
+| Hamburg |   --> | Altona |
++---------+       +--------+
++-----------+     +-----+
+| Frankfurt | --> | Hof |
++-----------+     +-----+

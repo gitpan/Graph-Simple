@@ -3,12 +3,9 @@ Graph-Simple
 
 See Graph::Simple under LIMITATIONS for some hot topics. Also:
 
-* _trace_path()
+* _trace_path() for bend edges
 * find place for nodes by walking in increasing circles around the source
   node
-* find place for nodes without incoming edges by placing them in the
-  leftmost column
-* as_txt(): output attributes
 * parser: deal with " [ node ] { color: red; }", too
 * parser: deal with " [ node ], [node2], [node3]"
-
+* when generating HTML tables, trailing <td></td> pairs could be stripped

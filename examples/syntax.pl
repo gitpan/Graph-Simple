@@ -83,13 +83,17 @@ sub _for_all_files
     close FILE;
     my $graph = $parser->from_text( $input );
 
-    if (!defined $graph)
+    $graph->layout() if defined $graph;
+
+    if (!defined $graph || $graph->error() ne '')
       {
+      my $error = $parser->error();
+      $error = $graph->error() if defined $graph && $graph->error();
       $output .=
-        "<h2>$dir/$file" .
-	"<a class='top' href='#top' title='Go to the top'>Top -^</a></h2>\n".
+        "<h2>$dir/$file</h2>" .
+	"<a class='top' href='#top' title='Go to the top'>Top -^</a>\n".
 	"<div class='text'>\n".
-	"Error: Could not parse input from $file: <b style='color: red;'>" . $parser->error() . "</b>".
+	"Error: Could not parse input from $file: <b style='color: red;'>$error</b>".
 	"<br>Input was:\n" .
 	"<pre>$input</pre>\n".
 	"</div>\n";
@@ -119,8 +123,8 @@ sub out
   "-->\n" .
   "</style>\n" .
 
-  "<a name=\"$n\"></a><h2>$t\n" .
-  "<a class='top' href='#top' title='Go to the top'>Top -^</a></h2>\n".
+  "<a name=\"$n\"></a><h2>$t</h2>\n" .
+  "<a class='top' href='#top' title='Go to the top'>Top -^</a>\n".
    "<div class='text'>\n" .
  
    "<div style='float: left;'>\n" . 

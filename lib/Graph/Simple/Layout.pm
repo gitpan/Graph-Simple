@@ -8,7 +8,7 @@ package Graph::Simple::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 #############################################################################
@@ -57,7 +57,7 @@ sub layout
 
   my @done = ();			# stack with already done actions
   my $step = 0;
-  my $tries = 16;
+  my $tries = 8;
 
   TRY:
   while (@todo > 0)			# all actions on stack done?
@@ -72,7 +72,7 @@ sub layout
 
     push @done, $action;
 
-    my ($src, $dst, $mod, @coord);
+    my ($src, $dst, $mod);
 
     print STDERR "# Step $step: Action $action\n" if $self->{debug};
 
@@ -143,7 +143,7 @@ sub layout
         }
 
       # find path (mod is score modifier, or undef if no path exists)
-      ($mod, @coord) = $self->_trace_path( $src, $dst );
+      $mod = $self->_trace_path( $src, $dst );
       }
 
     if (!defined $mod)
@@ -162,11 +162,9 @@ sub layout
       else
         {
         print STDERR "# Step $step: Rewind stack for path from $src->{name} to $dst->{name}\n" if $self->{debug};
-        # free cell area
-        for (my $i = 0; $i < @coord; $i += 2)
-          {
-          delete $cells->{$coord[$i] . ',' . $coord[$i+1]};
-          }
+    
+        # XXX TODO: free cell area
+
         print STDERR "# Step $step: Rewound\n" if $self->{debug};
           
         # if we couldn't find a path, we need to rewind one more action (just
@@ -196,6 +194,8 @@ sub layout
     }
 
   $self->{score} = $score;			# overall score
+ 
+  $self->error( 'Layouter failed to place and/or connect all nodes' ) if $tries == 0;
 
   # all things on the stack were done
 
@@ -236,8 +236,24 @@ sub _place_node
       }
     }
 
+  # if no predecessors/incoming edges, try to place in column 0
+  if (@pre == 0)
+    {
+    my $y = 0;
+    while (exists $cells->{"0," . $y})
+      {
+      $y += 2;
+      }
+    $y += 1 if exists $cells->{"0," . ($y-1)};	# leave one space
+    print STDERR "# Placing $node->{name} at $x,$y\n" if $self->{debug};
+    $cells->{"$x,$y"} = $node;
+    $node->{x} = $x;
+    $node->{y} = $y;
+    return 0;
+    }
+
   # XXX TODO: 100 => 100000 and limit tries
-  # try to place the node near the one it is linked to
+  # XXX TODO: try to place the node near the one it is linked to
   while (!defined $node->{x})
     {
     my $x = int(rand(100));
@@ -272,7 +288,7 @@ sub _trace_path
     # found a path
 
     my $mod = 1;			# for straight paths: score +1
-    $mod++ if @coords == 01;		# for short paths: score +1
+    $mod++ if @coords == 1;		# for short paths: score +1
 
     if ($src->{x} == $dst->{x}-2 && $src->{y} == $dst->{y})
       {
@@ -291,29 +307,19 @@ sub _trace_path
    # now for each coord, allocate the cell
    if (@coords == 1)
      {
-     my $path;
-     # short path:
-     $path = $self->_gen_edge_right( $src, $dst) if ($dx == 1 && $dy == 0);
-     $path = $self->_gen_edge_down ( $src, $dst) if ($dx == 0 && $dy == 1);
-     $path = $self->_gen_edge_left ( $src, $dst) if ($dx == -1 && $dy == 0);
-     $path = $self->_gen_edge_up   ( $src, $dst) if ($dx == 0 && $dy == -1);
-
-     print STDERR "# Found simple path from $src->{name} to $dst->{name}\n" if $self->{debug};
-
-     $self->_put_edge($path, $x, $y, $edge, EDGE_SHORT);
+     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y, EDGE_SHORT);
      }
    else
      {
-     # Longer path with at least two elements. So create a "start", and an
-     # "end" Edge, and if there are some left, straight edges for the middle
-     my $left = @coords - 1;
-
-     my $type = EDGE_HOR;
-     $type = EDGE_VER if $dx == 0;		# dy != 0 => vertical edge
-     while ($left > 0)
+     # Longer path with at least two elements. So create all cells like
+     # "start" cell, "end" cell and intermidiate pieces
+     
+     while (@coords > 1)				# leave end piece
        {
        my $start;
-       if ($dx != 0)
+       my ($x,$y,$type) = split /,/, shift @coords;
+
+       if ($type == EDGE_HOR)
          {
          $start = $self->_gen_edge_hor ( $src, $dst);
          }
@@ -322,17 +328,12 @@ sub _trace_path
          $start = $self->_gen_edge_ver ( $src, $dst);
          }
        $self->_put_edge($start, $x, $y, $edge, $type);
-       $x += $dx; $y += $dy; $left--;
        }
-     # final edge
-     my $path;
-     $path = $self->_gen_edge_right( $src, $dst) if ($dx == 1 && $dy == 0);
-     $path = $self->_gen_edge_down ( $src, $dst) if ($dx == 0 && $dy == 1);
-     $path = $self->_gen_edge_left ( $src, $dst) if ($dx == -1 && $dy == 0);
-     $path = $self->_gen_edge_up   ( $src, $dst) if ($dx == 0 && $dy == -1);
-     $self->_put_edge($path, $x, $y, $edge, EDGE_END);
-     }
 
+     my ($x,$y,$type) = split /,/, shift @coords;
+     # final edge element (end piece)
+     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y, EDGE_END);
+     }
     }
   else
     {
@@ -341,8 +342,22 @@ sub _trace_path
     sleep(1);
     return undef;
     }
-  ($mod,@coords);
+  $mod;
   }
+
+sub _create_edge
+  {
+  my ($self,$edge, $src, $dst,$dx,$dy,$x,$y,$type) = @_;
+
+   my $path;
+   # short path or endpoint:
+   $path = $self->_gen_edge_right( $src, $dst) if ($dx == 1 && $dy == 0);
+   $path = $self->_gen_edge_down ( $src, $dst) if ($dx == 0 && $dy == 1);
+   $path = $self->_gen_edge_left ( $src, $dst) if ($dx == -1 && $dy == 0);
+   $path = $self->_gen_edge_up   ( $src, $dst) if ($dx == 0 && $dy == -1);
+   print STDERR "# Found simple path from $src->{name} to $dst->{name}\n" if $self->{debug};
+   $self->_put_edge($path, $x, $y, $edge, $type);
+   }
 
 sub _put_edge
   {
@@ -352,6 +367,7 @@ sub _put_edge
   $self->{cells}->{"$x,$y"} = $path;
   $path->{x} = $x;
   $path->{y} = $y;
+  $path->{graph} = $self;		# register edges with ourself
   $edge->add_cell ($x,$y, $type);
   }
 
@@ -371,6 +387,8 @@ sub _trace_straight_path
   if ($dx != 0 && $dy != 0)
     {
     # straight path not possible, since x0 != x1 AND y0 != y1
+    # XXX TODO: try to trace a path with a bend
+
     return ();
     }
 
@@ -378,12 +396,13 @@ sub _trace_straight_path
 
   my ($x,$y) = ($x0+$dx,$y0+$dy);			# starting pos
   my @coords;
+  my $type = EDGE_HOR; $type = EDGE_VER if $dx == 0;	# - or |
   do
     {
     # XXX TODO handle here crossing paths
     return () if exists $cells->{"$x,$y"};	# cell already full
 
-    push @coords, "$x,$y";			# good one, is free
+    push @coords, "$x,$y," . $type;		# good one, is free
     $x += $dx;					# next field
     $y += $dy;
     } while ($x != ($x1) || $y != ($y1));
@@ -397,7 +416,7 @@ sub _gen_edge_right
   my $s = $self->edge($src,$dst);
 
   Graph::Simple::Node->new(
-    name => "\n $s->{style}", border => 'none', class => 'edge', w => 5, 
+    name => "\n $s->{style}", class => 'edge', w => 5, 
     );
   }
 
@@ -409,9 +428,9 @@ sub _gen_edge_hor
 
   my $st = $s->{style}; $st =~ s/[^-=\.]//g;
 
-  $st = $st x 3;
+  $st = $st x 3; $st =~ s/.\z//;
   Graph::Simple::Node->new(
-    name => "\n$st", border => 'none', class => 'edge', w => 6, 
+    name => "\n$st", class => 'edge', w => 5, 
     );
   }
 
@@ -430,7 +449,7 @@ sub _gen_edge_ver
 
   Graph::Simple::Node->new(
     name => "  $style\n  $style2\n  $style",
-    border => 'none', class => 'edge', w => 5, h => 3
+    class => 'edge', w => 5, h => 3
     );
   }
 
@@ -449,7 +468,7 @@ sub _gen_edge_down
 
   Graph::Simple::Node->new(
     name => "  $style\n  $style2\n  v",
-    border => 'none', class => 'edge', w => 5, h => 3
+    class => 'edge', w => 5, h => 3
     );
   }
 
@@ -468,7 +487,7 @@ sub _gen_edge_up
 
   Graph::Simple::Node->new(
     name => "  ^\n  $style2\n  $style\n",
-    border => 'none', class => 'edge', w => 5, h => 3
+    class => 'edge', w => 5, h => 3
     );
   }
 
@@ -480,7 +499,7 @@ sub _gen_edge_left
 
   $s = s/>//;
   Graph::Simple::Node->new(
-    name => "\n <$s", border => 'none', class => 'edge', w => 5, w => 3,
+    name => "\n <$s", class => 'edge', w => 5, w => 3,
     );
   }
 
@@ -499,6 +518,7 @@ sub _remove_path
     # free in our cells area
     delete $cells->{$key};
     }
+  $edge->clear_cells();
   }
 
 1;
@@ -515,7 +535,6 @@ Graph::Simple::Layout - Layout the graph from Graph::Simple
 
 	my $bonn = Graph::Simple::Node->new(
 		name => 'Bonn',
-		border => 'solid 1px black',
 	);
 	my $berlin = Graph::Simple::Node->new(
 		name => 'Berlin',

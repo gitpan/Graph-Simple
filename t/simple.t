@@ -86,6 +86,7 @@ is ($graph->css(), <<HERE
 .edge {
   background: inherit;
   border: none;
+  font-family: courier-new, courier, monospaced, sans-serif;
   margin: 0.1em;
   padding: 0.2em;
   text-align: center;
@@ -118,6 +119,7 @@ is ($graph->css(), <<HERE
 .edge42 {
   background: inherit;
   border: none;
+  font-family: courier-new, courier, monospaced, sans-serif;
   margin: 0.1em;
   padding: 0.2em;
   text-align: center;

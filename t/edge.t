@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 11;
+   plan tests => 12;
    chdir 't' if -d 't';
    use lib '../lib';
    }
@@ -18,6 +18,14 @@ use Graph::Simple::Edge qw/
    EDGE_END
    EDGE_VER
    EDGE_HOR
+   EDGE_N_E
+   EDGE_N_W
+   EDGE_S_E
+   EDGE_S_W
+   EDGE_N_E_W
+   EDGE_S_E_W
+   EDGE_W_N_S
+   EDGE_E_N_S
   /;
 
 can_ok ("Graph::Simple::Edge", qw/
@@ -65,4 +73,7 @@ is (scalar keys %{$edge->cells()}, 1, 'still one cell');
 
 $edge->add_cell(1,1,EDGE_END());
 is (scalar keys %{$edge->cells()}, 2, 'two cells');
+
+$edge->clear_cells();
+is (scalar keys %{$edge->cells()}, 0, 'no cells');
 

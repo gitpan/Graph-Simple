@@ -17,7 +17,7 @@ use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm/Edge.pm!
@@ -69,11 +69,24 @@ sub _init
     padding => '0.2em',
     margin => '0.1em',
     'text-align' => 'center',
+    'font-family' => 'courier-new, courier, monospaced, sans-serif',
    },
   group => { 
    },
   };
 
+  # make copy of defaults, to not include them in output
+  $self->{def_att} = { node => {}, graph => {}, edge => {}};
+  foreach my $c (qw/node graph edge/)
+    {
+    my $a = $self->{att}->{$c};
+    foreach my $atr (keys %$a)
+      {
+      $self->{def_att}->{$c}->{$atr} = $a->{$atr};
+      }
+    }
+
+  # internal graph object
   $self->{graph} = Graph::Directed->new();
   
   foreach my $k (keys %$args)
@@ -198,8 +211,11 @@ sub set_attributes
   {
   my ($self, $class, $att) = @_;
 
-  # XXX TODO: restrict classes to "node", "group", "edge" and "graph" plus
-  # subclasses
+  # allowed classes and subclasses (except graph)
+  if ($class !~ /^(node|group|edge|graph\z)/)
+    {
+    return $self->error ("Illegal class '$class' when setting attribute $att");
+    }
 
   # create class
   $self->{att}->{$class} = {} unless ref($self->{att}->{$class}) eq 'HASH';
@@ -277,11 +293,7 @@ sub as_html_page
 
   $self->layout() unless defined $self->{score};
 
-  my $html = $self->html_page_header();
-
-  $html .= $self->as_html();
-
-  $html .= $self->html_page_footer();
+  my $html = $self->html_page_header() . $self->as_html() . $self->html_page_footer();
 
   $html;
   }
@@ -333,7 +345,6 @@ sub as_html
 	next;
 	}
       my $node = $rows->{$y}->{$x};
-#      print STDERR "row $y, col $x = $node->{name}\n";
       $html .= "  " . $node->as_html('td',$id);
       }
 
@@ -354,9 +365,40 @@ sub as_txt
   # does not need a layout() before hand!
   my ($self) = shift;
 
-  my @nodes = $self->sorted_nodes();
+  # generate the atributes first
 
   my $txt = '';
+  for my $class (qw/graph node edge group/)
+    {
+    my $a = $self->{att}->{$class};
+    my $att = '';
+    for my $atr (keys %$a)
+      {
+      # attribute not defined
+      next if !defined $a->{$atr};
+
+      next if defined $self->{def_att}->{$class}->{$atr} &&
+              $a->{$atr} eq $self->{def_att}->{$class}->{$atr};
+      $att .= "  $atr: $a->{$atr};\n";
+      }
+
+    if ($att ne '')
+      {
+      # the following makes short, single definitions to fit on one line
+      if ($att !~ /\n.*\n/ && length($att) < 40)
+        {
+        $att =~ s/\n/ /; $att =~ s/^  / /;
+        }
+      else
+        {
+        $att = "\n$att";
+        }
+      $txt .= "$class {$att}\n";
+      }
+    }
+
+  my @nodes = $self->sorted_nodes();
+
   foreach my $n (@nodes)
     {
     my @out = $n->successors();
@@ -415,6 +457,10 @@ sub as_ascii
     # this also includes path nodes
     push @V, $node;
 
+    # calc. w from length of name and border style (border style not known
+    # until parsing is complete since it can be overwritten anytime)
+    $node->_correct_w();
+
     my $w = $node->{w};
     my $h = $node->{h};
     # record maximum size for that col/row
@@ -426,7 +472,6 @@ sub as_ascii
   my $pos = 0;
   for my $y (sort { $a <=> $b } keys %$rows)
     {
-    #print "setting row $y to $pos\n";
     my $s = $rows->{$y};
     $rows->{$y} = $pos;			# first is 0, second is $rows[1] etc
     $pos += $s;
@@ -434,7 +479,6 @@ sub as_ascii
   $pos = 0;
   for my $x (sort { $a <=> $b } keys %$cols)
     {
-    #print "setting col $x to $pos\n";
     my $s = $cols->{$x};
     $cols->{$x} = $pos;
     $pos += $s;
@@ -442,9 +486,8 @@ sub as_ascii
 
   print STDERR "Have ", scalar @V, " nodes\n" if $self->{debug};
 
-  # generate a "framebuffer"
   my @fb = ();
-  # find out max. dimensions
+  # find out max. dimensions for framebuffer
   my $max_y = 0; my $max_x = 0;
   foreach my $v (@V)
     {
@@ -452,10 +495,8 @@ sub as_ascii
     # X and Y are col/row, so translate them to real pos
     my $x = $v->{x};
     my $y = $v->{y};
-    # print "$v->{name} cell $x,$y ";
     $x = $cols->{ $v->{x} };
     $y = $rows->{ $v->{y} };
-    # print " => pos $x,$y\n";
 
     my $m = $y + $v->{h} - 1;
     $max_y = $m if $m > $max_y;
@@ -463,11 +504,13 @@ sub as_ascii
     $max_x = $m if $m > $max_x;
     }
 
+  # generate the actual framebuffer
   for my $y (0..$max_y)
     {
     $fb[$y] = ' ' x $max_x;
     }
 
+  # insert all cells into it
   foreach my $v (@V)
     {
     # get as ASCII box
@@ -475,7 +518,6 @@ sub as_ascii
     # get position from cell
     my $x = $cols->{ $v->{x} };
     my $y = $rows->{ $v->{y} };
-    # print $v->{name}. " cell $v->{x},$v->{y} has " . scalar @lines." lines at ($x,$y)\n";
     for my $i (0 .. scalar @lines-1)
       { 
       substr($fb[$y+$i], $x, length($lines[$i])) = $lines[$i]; 
@@ -504,20 +546,19 @@ sub add_edge
 
   print STDERR " add_edge $x->{name} -> $y->{name}\n" if $self->{debug};
 
-  # register the nodes with our graph object
-  $x->{graph} = $g;
-  $y->{graph} = $g;
+  $edge = Graph::Simple::Edge->new() unless defined $edge;
+
+  # register the nodes and the edge with our graph object
+  $x->{graph} = $self;
+  $y->{graph} = $self;
+  $edge->{graph} = $self;
 
   # add edge from X to Y (and X and Y)
   $g->add_edge( $x->{name}, $y->{name} );
 
-  # store $x and $y
+  # store obj pointers so that we can get them back later
   $g->set_vertex_attribute( $x->{name}, OBJ, $x);
   $g->set_vertex_attribute( $y->{name}, OBJ, $y);
- 
-  $edge = Graph::Simple::Edge->new() unless defined $edge;
-
-  # store the edge, too
   $g->set_edge_attribute( $x->{name}, $y->{name}, OBJ, $edge);
 
   $self->{score} = undef;			# invalidate last layout
@@ -535,6 +576,9 @@ sub add_node
   $g->set_vertex_attribute( $x->{name}, OBJ, $x);
 
   $self->{score} = undef;			# invalidate last layout
+  
+  # register the node with our graph object
+  $x->{graph} = $self;
 
   $self;
   }
@@ -605,8 +649,8 @@ Graph::Simple - Render graphs as ASCII or HTML
 C<Graph::Simple> lets you generate graphs consisting of various shaped
 boxes connected with arrows.
 
-Be default it works on a grid, and thus the output is most usefull for flow
-charts, network diagrams, or hirarchy trees.
+Be default it works on a grid (manhattan layout), and thus the output is
+most usefull for flow charts, network diagrams, or hirarchy trees.
 
 =head2 Input
 
@@ -705,6 +749,21 @@ the first node:
 	[ Bonn ] -> [ Berlin ]
 	[ Berlin ] -> [ Hamburg ]
 	[ Bonn ] -> [ Hamburg ]
+
+=end graph
+
+=head2 Different edge styles
+
+A graph consisting of a couple of nodes, linked with the
+different possible edge styles.
+
+=begin graph
+
+	[ Bonn ] <-> [ Berlin ]        # bidirectional
+	[ Berlin ] ==> [ Rostock ]     # double
+	[ Hamburg ] ..> [ Altona ]     # dotted
+	[ Dresden ] - > [ Bautzen ]    # dashed
+	[ Magdeburg ] <=> [ Ulm ]      # bidrectional, double etc
 
 =end graph
 

@@ -47,9 +47,8 @@ from the parsed input, as well the automatically generated HTML+CSS code.
 </p>
 
 <ul>
-  <li>The created text representation does not yet carry node attributes, like colors or border style.
   <li>The HTML does not yet have "pretty" edges. This will be fixed later.
-  <li>The limitations in
+  <li>Also, the limitations in
 	<a href="http://search.cpan.org/~tels/Graph-Simple/lib/Graph/Simple.pm#LIMITATIONS">Graph::Simple</a> apply.
 </ul>
 

@@ -23,6 +23,8 @@ isnt ($Graph::Simple::VERSION, undef, 'VERSION in Layout');
 
 use Graph::Simple;
 
+Graph::Simple::Edge->import (qw/EDGE_HOR EDGE_VER/);
+
 #############################################################################
 # layout tests
 
@@ -69,7 +71,7 @@ delete $graph->{cells}->{"1,2"};
 @coords = $graph->_trace_straight_path( $src, $dst);
 
 is (scalar @coords, 2+1, 'straight path down');
-is (join (":", @coords), '0:1:1,2', 'path 1,1 => 1,3');
+is (join (":", @coords), '0:1:1,2,' . EDGE_VER(), 'path 1,1 => 1,3');
 
 $src->{x} = 1; $src->{y} = 0;
 $dst->{x} = 1; $dst->{y} = 5;
@@ -77,6 +79,7 @@ $dst->{x} = 1; $dst->{y} = 5;
 @coords = $graph->_trace_straight_path( $src, $dst);
 
 is (scalar @coords, 2+4, 'straight path down');
-is (join (":", @coords), '0:1:1,1:1,2:1,3:1,4', 'path 1,0 => 1,5');
+my $type = EDGE_VER();
+is (join (":", @coords), "0:1:1,1,$type:1,2,$type:1,3,$type:1,4,$type", 'path 1,0 => 1,5');
 
 

@@ -86,3 +86,21 @@ Renamed to Graph::Simple:
   * t/layout.t: add tests for _trace_straight_path()
   * Layout: simplify _trace_path() by using _trace_straight_path()
   * Layout: can trace straight edges occupying multiple cells
+
+2005-01-10 v0.08 Tels 133 tests -- Fix, fix, fix, fix the stupid bugs...
+  * grapher tries to place nodes without any incoming edges into first column
+    (this fixes all the examples which have groups of not-connected nodes)
+  * in HTML, use monospaced font for edges (prepare for box-art)
+  * Layout: set error if layout stage fails
+  * Edge: add EDGE_N_E, EDGE_N_W, EDGE_N_E_W etc for corner pieces
+  * Edge: add clear_cells()
+  * make _trace_path() more general by having _trace_straight_path() creating
+    the edge types
+  * Node: as_html(): no longer outputs 'style="border: none"' for class="edge"
+  * Node: include attributes in as_txt() as well as classes (for subclasses)
+  * Node: add class()
+  * Graph: always register nodes/edges with the graph
+  * Graph: as_txt() includes attributes (unless they are the defaults)
+  * Node: postpone calculation of 'w' (called by as_ascii() from Graph)
+  * add a stress test with a bend edge
+

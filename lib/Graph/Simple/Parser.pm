@@ -99,8 +99,6 @@ sub from_text
     $line =~ s/^\s+//;
     $line =~ s/\s+\z//;
 
-#    print STDERR "at line $nr '$line'\n";
-
     # node { color: red; } or 
     # node.graph { color: red; }
 
@@ -150,14 +148,12 @@ sub from_text
       $node_b = $c->new( { name => $n6 } ) unless defined $node_b;
 
       my $style = '--';	# default
-#      print STDERR "edge style '$n3'\n";
       $style = '==' if $n3 =~ /^=+\z/; 
       $style = '..' if $n3 =~ /^\.+\z/; 
       $style = '- ' if $n3 =~ /^(- )+\z/; 
-#      print STDERR "edge style '$style'\n";
       # XXX TODO: look at $n2 and $n4 for left/right direction
       my $edge = $e->new( { style => $style . '>' } );
-      $graph->add_edge ( $node_a, $node_b, $edge ); 
+      $graph->add_edge ( $node_a, $node_b, $edge );
       next LINE;
       }
 

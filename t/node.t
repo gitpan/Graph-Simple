@@ -63,7 +63,7 @@ is ($other->predecessors(), 1, '1 incoming');
 #############################################################################
 # as_txt/as_html
 
-is ($node->as_txt(), '[ Node #0 ]', 'as_txt');
+is ($node->as_txt(), '[ Node \#0 ]', 'as_txt');
 is ($node->as_html(), "<td class='node'> Node #0 </td>\n",
  'as_html');
 

@@ -17,7 +17,7 @@ use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm/Edge.pm!
@@ -43,36 +43,36 @@ sub _init
   $self->{error} = '';
   $self->{debug} = 0;
   
+  $self->{id} = '';
+
   $self->{html_header} = '';
   $self->{html_footer} = '';
   $self->{html_style} = '';
-  $self->{html_css} = <<HERE
- <style type="text/css">
-  <!--
-  .node {
-    border: 1px solid black;
-    background: white;
-    padding: 0.2em;
-    margin: 0.1em;
-    text-align: center;
-  }
-  .edge {
-    border: none;
-    background: inherit;
-    padding: 0.2em;
-    margin: 0.1em;
-    text-align: center;
-  }
-  .graph {
-    border: 1px solid black;
-    background: #e0e0f0;
-    margin: 0.5em;
-    padding: 0.7em;
-  }
-  -->
- </style>
-HERE
-;
+
+  $self->{att} = {
+  node => {
+    border => '1px solid black',
+    background => 'white',
+    padding => '0.2em',
+    margin => '0.1em',
+    'text-align' => 'center',
+   },
+  graph => { 
+    border => '1px solid black',
+    background => '#e0e0f0',
+    margin => '0.5em',
+    padding => '0.7em',
+   },
+  edge => { 
+    border => 'none',
+    background => 'inherit',
+    padding => '0.2em',
+    margin => '0.1em',
+    'text-align' => 'center',
+   },
+  group => { 
+   },
+  };
 
   $self->{graph} = Graph::Directed->new();
   
@@ -92,6 +92,14 @@ HERE
 
 #############################################################################
 # accessors
+
+sub id
+  {
+  my $self = shift;
+
+  $self->{id} = shift if defined $_[0];
+  $self->{id};
+  }
 
 sub score
   {
@@ -176,6 +184,33 @@ sub node
   $self->{graph}->get_vertex_attribute( $name, OBJ );
   }
 
+sub attribute
+  {
+  # return the value of attribute $att from class $class
+  my ($self, $class, $att) = @_;
+
+  my $a = $self->{att};
+  return undef unless exists $a->{$class} && exists $a->{$class}->{$att};
+  $a->{$class}->{$att};
+  }
+
+sub set_attributes
+  {
+  my ($self, $class, $att) = @_;
+
+  # XXX TODO: restrict classes to "node", "group", "edge" and "graph" plus
+  # subclasses
+
+  # create class
+  $self->{att}->{$class} = {} unless ref($self->{att}->{$class}) eq 'HASH';
+
+  foreach my $a (keys %$att)
+    {
+    $self->{att}->{$class}->{$a} = $att->{$a};
+    } 
+  $self;
+  }
+
 #############################################################################
 #############################################################################
 # output (as_txt, as_ascii, as_html) routines
@@ -184,7 +219,26 @@ sub css
   {
   my $self = shift;
 
-  $self->{html_css};
+  my $a = $self->{att};
+  my $css = '';
+  my $id = $self->{id};
+
+  foreach my $class (sort keys %$a)
+    {
+
+    next if keys %{$a->{$class}} == 0;			# skip empty ones
+
+    $css .= ".$class$id {\n";
+    foreach my $att (sort keys %{$a->{$class}})
+      {
+      my $val = $a->{$class}->{$att};
+      $css .= "  $att: $val;\n";
+     
+      }
+    $css .= "}\n";
+    }
+
+  $css;
   }
 
 sub html_page_header
@@ -195,7 +249,11 @@ sub html_page_header
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
  <head>
+ <style type="text/css">
+ <!--
  ##CSS##
+  -->
+ </style>
  </head>
 <body bgcolor=white color=black>
 HTML
@@ -251,8 +309,10 @@ sub as_html
     # record all possible columns
     $cols->{$x} = undef;
     }
-  
-  $html .= "\n<table class=\"graph\" border=0 cellpadding=4px cellspacing=3px";
+ 
+  my $id = $self->{id};
+ 
+  $html .= "\n<table class=\"graph$id\" border=0 cellpadding=4px cellspacing=3px";
   $html .= " style=\"$self->{html_style}\"" if $self->{html_style};
   $html .= ">\n";
 
@@ -274,7 +334,7 @@ sub as_html
 	}
       my $node = $rows->{$y}->{$x};
 #      print STDERR "row $y, col $x = $node->{name}\n";
-      $html .= "  " . $node->as_html('td');
+      $html .= "  " . $node->as_html('td',$id);
       }
 
     $html .= " </tr>\n";
@@ -665,6 +725,27 @@ valid options:
 
 	debug			if true, enables debug output
 
+=head2 attribute()
+
+	my $value = $graph->attribute( $class, $name );
+
+Return the value of attribute C<$name> from class C<$class>.
+
+Example:
+
+	my $color = $graph->attribute( 'node', 'color' );
+
+=head2 set_attributes()
+
+	$graph->set_attributes( $class, $att );
+
+Given a class name in C<$class> and a hash of mappings between attribute names
+and values in C<$att>, will set all these attributes.
+
+Example:
+
+	$graph->set_attributes( 'node', { color => 'red', background => 'none' } );
+
 =head2 score()
 
 	my $score = $graph->score();
@@ -793,6 +874,17 @@ Return node by name (case sensitive). Returns undef of the node couldn't be foun
 Return edge object between nodes C<$node1> and C<$node2>. Both nodes can be
 either names or C<Graph::Simple::Node> objects.
 
+=head2 id()
+
+	my $graph_id = $graph->id();
+	$graph->id('123');
+
+Returns the id of the graph. You can also set a new ID with this routine. The
+default is ''.
+
+The graph's ID is used to generate unique CSS classes for each graph, in the
+case you want to have more than one graph in an HTML page.
+
 =head1 EXPORT
 
 Exports nothing.
@@ -804,12 +896,31 @@ L<Graph::Layout::Aesthetic>, L<Graph> and L<Graph::Simple::Parser>.
 There is also an very old, unrelated project from ca. 1995, which does something similiar.
 See L<http://rw4.cs.uni-sb.de/users/sander/html/gsvcg1.html>.
 
-Testcases and more examples under L<http://bloodgate.com/perl/graph/>.
+Testcases and more examples under:
+
+L<http://bloodgate.com/perl/graph/>.
 
 =head1 LIMITATIONS
 
 This module is a proof-of-concept and has currently some serious limitations.
 Hopefully further development will lift these.
+
+=head2 Syntax
+
+See L<http://bloodgate.com/perl/graph/> for limits of the syntax. Mostly this
+are limitations in the parser, which cannot yet handle the following features:
+
+=over 2
+
+=item multiline definitions
+
+=item node groups
+
+=item node attributes following the node
+
+=item node lists
+
+=back
 
 =head2 Paths
 
@@ -836,7 +947,13 @@ possible:
 	  +--------> | Potsdam |
 	             +---------+
 
-The L<No long edges> flaw must be fixed first to allow this feature.
+Since the C<long edges> feature is already implemented, this should be easy
+to add. We need four new types of edges, though:
+
+	EDGE_DOWN_RIGHT
+	EDGE_DOWN_LEFT
+	EDGE_RIGHT_DOWN
+	EDGE_UP_RIGHT
 
 =item No joints
 
@@ -854,15 +971,9 @@ Currently it is not possible that an edge joins another edge like this:
 
 This means each node can have at most 4 edges leading to or from it.
 
-=item No long edges
-
-Edges are always exactly one cell long. This seriously hampers node
-placement (see below). To get this feature working we need edges
-that keep a list of cells they occupy.
-
 =back
 
-All the flaws with the edges canbe corrected easily, but there was simple
+All the flaws with the edges can be corrected easily, but there was simple
 not enough time for that yet.
 
 =head2 Distances

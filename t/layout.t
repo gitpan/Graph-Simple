@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 5;
+   plan tests => 12;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Layout") or die($@);
@@ -31,5 +31,52 @@ my $graph = Graph::Simple->new();
 is (ref($graph), 'Graph::Simple');
 
 is ($graph->error(), '', 'no error yet');
+
+#############################################################################
+# _trace_straight_path()
+
+my $src = Graph::Simple::Node->new( name => 'Bonn' );
+my $dst = Graph::Simple::Node->new( 'Berlin' );
+
+$src->{x} = 1; $src->{y} = 1;
+$dst->{x} = 1; $dst->{y} = 1;
+
+my @coords = $graph->_trace_straight_path( $src, $dst);
+
+is (scalar @coords, 2+1, 'same cell => sort edge path');
+
+
+$src->{x} = 1; $src->{y} = 1;
+$dst->{x} = 2; $dst->{y} = 2;
+
+@coords = $graph->_trace_straight_path( $src, $dst);
+
+is (scalar @coords, 0, 'no straight path');
+
+
+# mark one cell as already occupied
+$graph->{cells}->{"1,2"} = $src;
+
+$src->{x} = 1; $src->{y} = 1;
+$dst->{x} = 1; $dst->{y} = 3;
+
+@coords = $graph->_trace_straight_path( $src, $dst);
+
+is (scalar @coords, 0, 'cell already occupied');
+
+delete $graph->{cells}->{"1,2"};
+
+@coords = $graph->_trace_straight_path( $src, $dst);
+
+is (scalar @coords, 2+1, 'straight path down');
+is (join (":", @coords), '0:1:1,2', 'path 1,1 => 1,3');
+
+$src->{x} = 1; $src->{y} = 0;
+$dst->{x} = 1; $dst->{y} = 5;
+
+@coords = $graph->_trace_straight_path( $src, $dst);
+
+is (scalar @coords, 2+4, 'straight path down');
+is (join (":", @coords), '0:1:1,1:1,2:1,3:1,4', 'path 1,0 => 1,5');
 
 

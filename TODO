@@ -6,7 +6,9 @@ See Graph::Simple under LIMITATIONS for some hot topics. Also:
 * _trace_path()
 * find place for nodes by walking in increasing circles around the source
   node
-* Graph: as_txt() needs to quote special chars in node names
+* find place for nodes without incoming edges by placing them in the
+  leftmost column
+* as_txt(): output attributes
+* parser: deal with " [ node ] { color: red; }", too
+* parser: deal with " [ node ], [node2], [node3]"
 
-* HTML/CSS: class names should contain the graph-id, this makes it possible
-  to generate more than one graph in one page 

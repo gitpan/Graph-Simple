@@ -28,7 +28,7 @@ local $/ = undef;
 my $html = <FILE>;
 close FILE;
 
-my $output = '';
+my $output = ''; my $ID = '0';
 
 # generate the parts and push their names into @toc
 gen_graphs($parser);
@@ -60,13 +60,21 @@ sub gen_graphs
   # for all files in a dir, generate a graph from it
   my $parser = shift;
 
-  opendir DIR, '../t/syntax/' or die ("Cannot read dir '../t/syntax': $!");
+  _for_all_files($parser, 'syntax');
+  _for_all_files($parser, 'stress');
+  }
+
+sub _for_all_files
+  {
+  my ($parser, $dir) = @_;
+
+  opendir DIR, "../t/$dir" or die ("Cannot read dir '../t/$dir': $!");
   my @files = readdir DIR;
   closedir DIR;
 
   foreach my $file (sort @files)
     {
-    my $f = '../t/syntax/' . $file;
+    my $f = "../t/$dir/" . $file;
     next unless -f $f;			# not a file?
  
     open FILE, "$f" or die ("Cannot read '$f': $!");
@@ -78,10 +86,10 @@ sub gen_graphs
     if (!defined $graph)
       {
       $output .=
-        "<a name=\"$file\"><h2>$file" .
+        "<h2>$dir/$file" .
 	"<a class='top' href='#top' title='Go to the top'>Top -^</a></h2>\n".
 	"<div class='text'>\n".
-	"Error: Could not parse input from $file: " . $parser->error() .
+	"Error: Could not parse input from $file: <b style='color: red;'>" . $parser->error() . "</b>".
 	"<br>Input was:\n" .
 	"<pre>$input</pre>\n".
 	"</div>\n";
@@ -97,12 +105,20 @@ sub out
 
   $method = 'as_' . $method;
 
+  # set unique ID for CSS
+  $graph->id($ID++);
+  
   my $t = $graph->nodes() . ' Nodes, ' . $graph->edges . ' Edges';
   my $n = $t; $n =~ s/\s/_/;
   
   push @toc, $t;
 
+  "<style type='text/css'>\n" .
+  "<!--\n" .
   $graph->css() . 
+  "-->\n" .
+  "</style>\n" .
+
   "<a name=\"$n\"></a><h2>$t\n" .
   "<a class='top' href='#top' title='Go to the top'>Top -^</a></h2>\n".
    "<div class='text'>\n" .
@@ -119,6 +135,6 @@ sub out
    "<h3>As HTML:</h3>\n" . 
    $graph->$method() . "</div>\n" .
 
-   "<div style='clear: both;'>&nbsp;</div></div>\n\n";
+   "<div class='clear'>&nbsp;</div></div>\n\n";
   }
 

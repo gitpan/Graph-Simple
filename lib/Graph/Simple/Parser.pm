@@ -13,7 +13,7 @@ use Graph::Simple;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 sub new
   {
@@ -87,12 +87,13 @@ sub from_text
   foreach my $line (@lines)
     {
     $nr++;
+    chomp($line);
+
     next if $line =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
+    next if $line =~ /^\s*\z/;	# empty line?
     
     # remove comment (but leave \# intact):
     $line =~ s/[^\\]#.*//;
-
-    chomp($line);
 
     # remove white space at start/end
     $line =~ s/^\s+//;
@@ -100,12 +101,28 @@ sub from_text
 
 #    print STDERR "at line $nr '$line'\n";
 
+    # node { color: red; } or 
+    # node.graph { color: red; }
+
+    if ($line =~ /^(node|graph|edge|group)(\.\w+)?\s*\{([^\}]+)\}\s*\z/)
+      {
+      my $type = $1 || '';
+      my $class = $2 || '';
+      my $att = $self->_parse_attributes($3 || '');
+
+      return undef unless defined $att;		# error in attributes?
+
+      $graph->set_attributes ( "$type$class", $att);
+
+      next LINE;
+      }
+    
     # [ Berlin ]
     if ($line =~ /^\[\s*([^\]]+?)\s*\]\z/)
       {
       my $n1 = $1;
       # unquote special chars
-      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/;
+      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
       my $node_a = $graph->node($n1);
       if (!defined $node_a)
@@ -123,8 +140,8 @@ sub from_text
       my $n1 = $1; my $n6 = $6; my $n3 = $3;
 
       # unquote special chars
-      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/;
-      $n6 =~ s/\\([\[\(\{\}\]\)#])/$1/;
+      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+      $n6 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
       my $node_a = $graph->node($n1);
       my $node_b = $graph->node($n6);
@@ -148,6 +165,33 @@ sub from_text
     }
 
   $graph;
+  }
+
+sub _parse_attributes
+  {
+  # takes a text like "attribute: value;  attribute2 : value2;" and
+  # returns a hash with the attributes
+  my ($self,$text) = @_;
+
+  my $att = {};
+
+  my @atts = split /\s*;\s*/, $text;
+
+  foreach my $a (@atts)
+    {
+    $self->error ("Error in atttribute: '$a' doesn't look valid to me.")
+      and return undef 
+    unless ($a =~ /^[^:]+:[^:]+\z/);	# name: value
+
+    my ($name, $val) = split /\s*:\s*/, $a;
+    $name =~ s/^\s+//;			# strip space at front
+    $name =~ s/\s+$//;			# strip space at end
+    $val =~ s/^\s+//;			# strip space at front
+    $val =~ s/\s+$//;			# strip space at end
+
+    $att->{$name} = $val;
+    }
+  $att;
   }
 
 sub error
@@ -265,6 +309,16 @@ with L<error()>.
 	my $error = $parser->error();
 
 Returns the last error.
+
+=head2 _parse_attributes()
+
+	my $attributes = $parser->_parse_attributes( $txt );
+  
+Takes a text like this:
+
+	attribute: value;  attribute2 : value2;
+
+and returns a hash with the attributes.
 
 =head1 EXPORT
 

@@ -148,7 +148,12 @@ sub as_txt
   {
   my $self = shift;
 
-  '[ ' .  $self->{name} . ' ]';
+  my $name = $self->{name};
+
+  # quote name
+  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+
+  '[ ' .  $name . ' ]';
   }
 
 my $DEF = {
@@ -159,14 +164,15 @@ my $DEF = {
 
 sub as_html
   {
-  my ($self, $tag) = @_;
+  my ($self, $tag, $id) = @_;
 
   $tag = 'td' unless defined $tag && $tag ne '';
+  $id = '' unless defined $id;
 
   # return yourself as HTML
 
   my $class = $self->{class} || 'node';
-  my $html = "<$tag class='$class'";
+  my $html = "<$tag class='$class$id'";
   
   my $style = '';
   for my $atr (qw/
@@ -343,10 +349,11 @@ Return the node in simple txt format.
 
 =head2 as_html()
 
-	my $html = $node->as_html($tag);
+	my $html = $node->as_html($tag, $id);
 
 Return the node in HTML. The C<$tag> is the optional name of the HTML
-tag to surround the node name with.
+tag to surround the node name with. C<$id> is an optional ID that is
+tagged onto the classname for the CSS.
 
 Example:
 
@@ -354,7 +361,7 @@ Example:
 
 Would print something like:
 
-	<span style="border: 1px solid black"> Bonn </span>
+	<span class="node"> Bonn </span>
 
 While:
 
@@ -362,7 +369,15 @@ While:
 
 Would print something like:
 
-	<td style="border: 1px solid black"> Bonn </td>
+	<td class="node"> Bonn </td>
+
+The following:
+
+	print $node->as_html('span', '12');
+
+Would print something like:
+
+	<span class="node12"> Bonn </span>
 
 =head2 name()
 

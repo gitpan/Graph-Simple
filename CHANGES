@@ -71,3 +71,18 @@ Renamed to Graph::Simple:
   * Parser: add reset() and call it from from_text()
   * Parser: handle quoted characters in node names
   * Parser: handle comments
+
+2005-01-09 v0.07 Tels 124 tests
+  * Parser: ignore empty lines
+  * Parser: unquote all special chars, not only the first 
+  * Node: quote node name in as_txt()
+  * Parser: _parse_attributes();
+  * Graph: added attribute(), set_attributes()
+  * Graph: added id() to set/get a unique ID per graph
+  * Graph: default ID is '', CSS code contains ID in class names
+  * Parser: teach it to parse CSS and call $graph->set_attributes() 
+  * Edge: output name in as_txt()
+  * Layout: use strict, fix _trace_straight_path()
+  * t/layout.t: add tests for _trace_straight_path()
+  * Layout: simplify _trace_path() by using _trace_straight_path()
+  * Layout: can trace straight edges occupying multiple cells

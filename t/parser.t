@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 13;
+   plan tests => 14;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Parser") or die($@);
@@ -38,6 +38,12 @@ foreach (<DATA>)
   $txt =~ s/\\n/\n/g;				# insert real newlines
 
   my $graph = $parser->from_text($txt);		# reuse parser object
+
+  if (!defined $graph)
+    {
+    print '# Error: ' . $parser->error();
+    next;
+    }
  
   my $got = scalar $graph->nodes();
 
@@ -59,4 +65,5 @@ __DATA__
 [ Bonn ] ==> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] ..> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn \( \#1 \) ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn ( #1 ),Frankfurt
 

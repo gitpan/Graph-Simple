@@ -17,9 +17,7 @@ require "common.pl";
 
 my $graph = Graph::Simple->new(
   html_header => '',
-#<div style="margin: 0.5em; border: 1px solid black; background: #F0F0F0;">',
   html_footer => '',
-#</div>',
   html_style => '',
  );
 

@@ -25,7 +25,7 @@ sub OBJ () { 'obj' };
   
 sub EDGE_SHORT  { 0; }	# |->		a start/end at the same cell
 sub EDGE_START  { 1; }	# |--		starting-point
-sub EDGE_END    { 2; }        # -->		end-point
+sub EDGE_END    { 2; }	# -->		end-point
 sub EDGE_HOR    { 3; }	# --		horizontal line
 sub EDGE_VER    { 4; }	# |		vertical line
 sub EDGE_CROSS  { 5; }	# +		crossing lines
@@ -98,7 +98,12 @@ sub as_txt
   {
   my $self = shift;
 
-  ' ' . $self->{style} . ' ';
+  # '- Name ' or ''
+  my $n = $self->{name};
+  $n = '- ' . $n . ' ' if $n ne '';
+
+  # ' - Name -->' or ' --> '
+  ' ' . $n . $self->{style} . ' ';
   }
 
 #############################################################################

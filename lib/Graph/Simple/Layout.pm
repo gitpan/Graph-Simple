@@ -15,6 +15,9 @@ $VERSION = '0.01';
 
 package Graph::Simple;
 
+use strict;
+use Graph::Simple::Edge qw/EDGE_SHORT EDGE_HOR EDGE_VER EDGE_END/;
+
 #############################################################################
 # layout the graph
 
@@ -140,7 +143,7 @@ sub layout
         }
 
       # find path (mod is score modifier, or undef if no path exists)
-      ($mod, @coord) = $self->_trace_path( $cells, $src, $dst );
+      ($mod, @coord) = $self->_trace_path( $src, $dst );
       }
 
     if (!defined $mod)
@@ -169,19 +172,17 @@ sub layout
         # if we couldn't find a path, we need to rewind one more action (just
 	# redoing the path would would fail again)
 
-#        use Data::Dumper; print STDERR Dumper( \@done );
         unshift @todo, $action;
         unshift @todo, pop @done;
-        if (ref($todo->[0]) && ref($todo->[0]) ne 'ARRAY')
+        if (ref($todo[0]) && ref($todo[0]) ne 'ARRAY')
           {
-          print STDERR ref($todo->[0]),"\n";;
-          my $action = $todo->[0];
+          print STDERR ref($todo[0]),"\n";;
+          my $action = $todo[0];
           delete $cells->{"$action->{x},$action->{y}"};
           # mark node as tobeplaced
           $action->{x} = undef;
           $action->{y} = undef;
           }
-#        print STDERR Dumper( \@done );
   	$tries--;
 	last TRY if $tries == 0;
         next TRY;
@@ -253,74 +254,85 @@ sub _place_node
 
 sub _trace_path
   {
-  my ($self, $cells, $src, $dst) = @_;
+  my ($self, $src, $dst) = @_;
+
+  my $cells = $self->{cells};
 
   print STDERR "# Finding path from $src->{name} to $dst->{name}\n" if $self->{debug};
   # find a free way from $src to $dst (both need to be placed)
   my $mod = 0;
-  my @coord = ();
 
 #  print STDERR "src: $src->{x}, $src->{y} dst: $dst->{x}, $dst->{y}\n";
 
-  if ($src->{x} == $dst->{x}-2 && $src->{y} == $dst->{y})
+  my ($dx,$dy,@coords) = $self->_trace_straight_path ($src, $dst);
+
+  if (@coords != 0)
     {
-#    print STDERR "# Found simple path from $src->{name} right to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x} + 1; my $y = $src->{y};
-    push @coord, $x, $y;
-    print STDERR "# Putting --> at cell $x,$y\n" if $self->{debug};
 
-    my $path = $self->_gen_edge_right( $src, $dst);
+    # found a path
 
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 5;				# straight +1, right +3, short +1
-    }
-  elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} - 2)
-    {
-#    print STDERR "# Found simple path from $src->{name} down to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x}; my $y = $src->{y} + 1;
-    push @coord, $x, $y;
-    print STDERR "# Putting v at cell $x,$y\n" if $self->{debug};
+    my $mod = 1;			# for straight paths: score +1
+    $mod++ if @coords == 01;		# for short paths: score +1
 
-    my $path = $self->_gen_edge_down( $src, $dst);
+    if ($src->{x} == $dst->{x}-2 && $src->{y} == $dst->{y})
+      {
+      $mod += 2;			# +2 if right
+      }
+   elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} - 2)
+      {
+      $mod += 1;			# +1 if down
+      }
 
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 4;				# straight +1, down +2, short +1
-    }
-  elsif ($src->{x} == $dst->{x}+2 && $src->{y} == $dst->{y})
-    {
-#    print STDERR "# Found simple path from $src->{name} down to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x}; my $y = $src->{y} + 1;
-    push @coord, $x, $y;
-    print STDERR "# Putting <-- at cell $x,$y\n" if $self->{debug};
+   my $x = $src->{x} + $dx;
+   my $y = $src->{y} + $dy;
 
-    my $path = $self->_gen_edge_left( $src, $dst);
+   my $edge = $self->edge($src,$dst);
 
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 3;				# straight +1, left +1, short +1
-    }
-  elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} + 2)
-    {
-#    print STDERR "# Found simple path from $src->{name} up to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x}; my $y = $src->{y} - 1;
-    push @coord, $x, $y;
-    print STDERR "# Putting v at cell $x,$y\n" if $self->{debug};
+   # now for each coord, allocate the cell
+   if (@coords == 1)
+     {
+     my $path;
+     # short path:
+     $path = $self->_gen_edge_right( $src, $dst) if ($dx == 1 && $dy == 0);
+     $path = $self->_gen_edge_down ( $src, $dst) if ($dx == 0 && $dy == 1);
+     $path = $self->_gen_edge_left ( $src, $dst) if ($dx == -1 && $dy == 0);
+     $path = $self->_gen_edge_up   ( $src, $dst) if ($dx == 0 && $dy == -1);
 
-    my $path = $self->_gen_edge_up( $src, $dst);
+     print STDERR "# Found simple path from $src->{name} to $dst->{name}\n" if $self->{debug};
 
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 3;				# straight +1, up +1, short +1
+     $self->_put_edge($path, $x, $y, $edge, EDGE_SHORT);
+     }
+   else
+     {
+     # Longer path with at least two elements. So create a "start", and an
+     # "end" Edge, and if there are some left, straight edges for the middle
+     my $left = @coords - 1;
+
+     my $type = EDGE_HOR;
+     $type = EDGE_VER if $dx == 0;		# dy != 0 => vertical edge
+     while ($left > 0)
+       {
+       my $start;
+       if ($dx != 0)
+         {
+         $start = $self->_gen_edge_hor ( $src, $dst);
+         }
+       else
+         {
+         $start = $self->_gen_edge_ver ( $src, $dst);
+         }
+       $self->_put_edge($start, $x, $y, $edge, $type);
+       $x += $dx; $y += $dy; $left--;
+       }
+     # final edge
+     my $path;
+     $path = $self->_gen_edge_right( $src, $dst) if ($dx == 1 && $dy == 0);
+     $path = $self->_gen_edge_down ( $src, $dst) if ($dx == 0 && $dy == 1);
+     $path = $self->_gen_edge_left ( $src, $dst) if ($dx == -1 && $dy == 0);
+     $path = $self->_gen_edge_up   ( $src, $dst) if ($dx == 0 && $dy == -1);
+     $self->_put_edge($path, $x, $y, $edge, EDGE_END);
+     }
+
     }
   else
     {
@@ -329,7 +341,18 @@ sub _trace_path
     sleep(1);
     return undef;
     }
-  ($mod,@coord);
+  ($mod,@coords);
+  }
+
+sub _put_edge
+  {
+  my ($self, $path, $x, $y, $edge, $type) = @_;
+
+#     print "$x,$y\n";
+  $self->{cells}->{"$x,$y"} = $path;
+  $path->{x} = $x;
+  $path->{y} = $y;
+  $edge->add_cell ($x,$y, $type);
   }
 
 sub _trace_straight_path
@@ -340,26 +363,31 @@ sub _trace_straight_path
   my ($x0, $y0) = ($src->{x}, $src->{y});
   my ($x1, $y1) = ($dst->{x}, $dst->{y});
 
-  my ($dx,$dy) = (($x1 - $x0), ($y1 - $y0));
+  my $dx = ($x1 - $x0) <=> 0;
+  my $dy = ($y1 - $y0) <=> 0;
+    
+  # if ($dx == 0 && $dy == 0) then we have only a short edge
 
   if ($dx != 0 && $dy != 0)
     {
     # straight path not possible, since x0 != x1 AND y0 != y1
-    return;
+    return ();
     }
 
-  my ($x,$y) = ($x0,$y);		# starting pos
+  my $cells = $self->{cells};
+
+  my ($x,$y) = ($x0+$dx,$y0+$dy);			# starting pos
   my @coords;
-  while ($x != $x1 && $y != $y0)
+  do
     {
     # XXX TODO handle here crossing paths
-    return if exists $cells->{"$x,$y"};	# cell already full
+    return () if exists $cells->{"$x,$y"};	# cell already full
 
-    push @coords, "$x,$y";		# good one, is free
-    $x += $dx;				# next field
+    push @coords, "$x,$y";			# good one, is free
+    $x += $dx;					# next field
     $y += $dy;
-    }
-  @coords;				# return all fields of path
+    } while ($x != ($x1) || $y != ($y1));
+  ($dx,$dy,@coords);				# return all fields of path
   }
 
 sub _gen_edge_right
@@ -370,6 +398,39 @@ sub _gen_edge_right
 
   Graph::Simple::Node->new(
     name => "\n $s->{style}", border => 'none', class => 'edge', w => 5, 
+    );
+  }
+
+sub _gen_edge_hor
+  {
+  my ($self, $src, $dst) = @_;
+ 
+  my $s = $self->edge($src,$dst);
+
+  my $st = $s->{style}; $st =~ s/[^-=\.]//g;
+
+  $st = $st x 3;
+  Graph::Simple::Node->new(
+    name => "\n$st", border => 'none', class => 'edge', w => 6, 
+    );
+  }
+
+sub _gen_edge_ver
+  {
+  my ($self, $src, $dst) = @_;
+ 
+  my $s = $self->edge($src,$dst);
+
+  # Downwards we can only do "|" (line), "| " (dashed) or "." (dotted)
+  # e.g. no double line
+
+  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
+  my $style2 = $style;
+  $style2 = ' ' if $s->{style} =~ /- /;
+
+  Graph::Simple::Node->new(
+    name => "  $style\n  $style2\n  $style",
+    border => 'none', class => 'edge', w => 5, h => 3
     );
   }
 

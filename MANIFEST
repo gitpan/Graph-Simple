@@ -18,9 +18,10 @@ t/edge.t
 t/group.t
 t/layout.t
 t/node.t
-t/parser.t
+t/parser.t			# general parser tests
+t/parse_att.t			# test parsing attributes
 t/simple.t
-t/syntax/0000.txt
+t/syntax/0000.txt		# syntax tests
 t/syntax/0001.txt
 t/syntax/0002.txt
 t/syntax/0003.txt
@@ -37,6 +38,8 @@ t/syntax/0013.txt
 t/syntax/0014.txt
 t/syntax/0015.txt
 t/syntax/0016.txt
+t/syntax/0017.txt
+t/stress/0001.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt

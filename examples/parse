@@ -11,6 +11,7 @@ print "# Graph::Simple v$Graph::Simple::VERSION\n";
 my $parser = Graph::Simple::Parser->new( debug => 0 );
 
 my $file = shift;
+my $id = shift || '';
 
 my $graph = $parser->from_file( $file );
 
@@ -18,6 +19,7 @@ print "$file\n";
 
 die ($parser->error()) unless defined $graph;
 
+$graph->id($id);
 $graph->layout();
 
 warn ($graph->error()) if $graph->error();

@@ -1,4 +1,4 @@
-# Elan and Roy on Teamwork:
+# Elan and Roy on Teamwork
 # http://www.cafepress.com/orderofthestick.10272636?zoom=yes#zoom
 
 [ Teamwork ] { background: yellow; title: Elan; } 

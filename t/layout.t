@@ -1,3 +1,5 @@
+#!/usr/bin/perl -w
+
 use Test::More;
 use strict;
 
@@ -20,7 +22,7 @@ isnt ($Graph::Simple::VERSION, undef, 'VERSION in Layout');
 
 use Graph::Simple;
 
-Graph::Simple::Path->import (qw/EDGE_HOR EDGE_VER/);
+Graph::Simple::Edge::Cell->import (qw/EDGE_HOR EDGE_VER/);
 
 #############################################################################
 # layout tests

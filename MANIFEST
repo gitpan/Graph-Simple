@@ -16,13 +16,14 @@ examples/parse			parser for tests
 examples/txt2ascii		parse text description and output it as ASCII art
 examples/base.css		needed for the output of syntax.pl
 examples/history.txt		test-graph for version comparisations
+examples/fun.tpl
 t/ascii.t
 t/graph.t
 t/edge.t
 t/group.t
 t/layout.t
 t/node.t
-t/path.t
+t/edge_cell.t
 t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
@@ -44,6 +45,7 @@ t/syntax/0102.txt
 t/syntax/0110.txt
 t/syntax/0120.txt
 t/syntax/0130.txt
+t/syntax/0131.txt
 t/syntax/0140.txt
 t/syntax/0150.txt
 t/syntax/0160.txt
@@ -64,25 +66,32 @@ t/stress/0006.txt
 t/fun/0000.txt			fun with graph examples
 t/fun/0010.txt
 t/fun/0020.txt
+t/fun/0030.txt
+t/fun/0131.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
 t/in/4nodes.txt
 t/in/4_2x2nodes.txt
 t/in/4groups.txt
+t/in/4groups_class.txt
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/3nodes.txt
 t/out/4nodes.txt
 t/out/4_2x2nodes.txt
 t/out/4groups.txt
+t/out/4groups_class.txt
 t/txt/4groups.txt
+t/txt/4groups_class.txt
 lib/Graph/Simple.pm
 lib/Graph/Simple/Layout.pm	actual layout routines
 lib/Graph/Simple/As_txt.pm	code to generate textual description
 lib/Graph/Simple/Parser.pm
 lib/Graph/Simple/Node.pm
+lib/Graph/Simple/Node/Cell.pm
 lib/Graph/Simple/Edge.pm
-lib/Graph/Simple/Path.pm
+lib/Graph/Simple/Edge/Cell.pm
 lib/Graph/Simple/Group.pm
+lib/Graph/Simple/Group/Cell.pm
 META.yml			Module meta-data (added by MakeMaker)

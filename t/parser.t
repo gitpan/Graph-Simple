@@ -1,9 +1,11 @@
+#!/usr/bin/perl -w
+
 use Test::More;
 use strict;
 
 BEGIN
    {
-   plan tests => 38;
+   plan tests => 44;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Parser") or die($@);
@@ -52,7 +54,7 @@ foreach (<DATA>)
   my @edges = $graph->edges();
 
   my $es = 0;
-  foreach my $e (@edges)
+  foreach my $e (sort { $a->label() cmp $b->label() } @edges)
     {
     $es ++ if $e->label() ne '';
     }
@@ -107,4 +109,10 @@ __DATA__
 [ Bonn ], [ Berlin ] --> [ Hamburg ]|3,Berlin,Bonn,Hamburg
 [ Bonn ], [ Berlin ], [ Ulm ] --> [ Hamburg ]|4,Berlin,Bonn,Hamburg,Ulm
 [ Bonn ], [ Berlin ], [ Ulm ] --> [ Hamburg ] [ Trier ] --> [ Ulm ]|5,Berlin,Bonn,Hamburg,Trier,Ulm
+( Group [ Bonn ], [ Berlin ] => [ Leipzig ] ) { color: red; }|3,Berlin,Bonn,Leipzig
+[ Bonn ] -> [ Berlin ]\n --> { color: red; } [ Leipzig ]|3,Berlin,Bonn,Leipzig
+[ Bonn ] --> { label: test; } [ Berlin ]|2+1,test,Berlin,Bonn
+[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
+[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; }|2+1,test,Berlin,Bonn
+[ Bonn ] --> { label: test; } [ Berlin ] { color: blue; } --> { label: test2; } [ Leipzig ]|3+2,test2,test,Berlin,Bonn,Leipzig
 

@@ -7,17 +7,15 @@ package Graph::Simple::Group;
 
 use 5.006001;
 use strict;
-use warnings;
 
-use vars qw/$VERSION/;
+use vars qw/$VERSION @ISA/;
+use Graph::Simple::Group::Cell;
+use Graph::Simple::Node;
 
-$VERSION = '0.02';
+@ISA = qw/Graph::Simple::Node/;
+$VERSION = '0.03';
 
 #############################################################################
-
-# Name of attribute under which the pointer to each Node/Edge object is stored
-# If you change this, change it also in Simple.pm/Edge.pm!
-sub OBJ () { 'obj' };
 
 {
   # protected vars
@@ -26,19 +24,6 @@ sub OBJ () { 'obj' };
 }
 
 #############################################################################
-
-sub new
-  {
-  my $class = shift;
-
-  my $args = $_[0];
-  $args = { name => $_[0] } if ref($args) ne 'HASH' && @_ == 1;
-  $args = { @_ } if ref($args) ne 'HASH' && @_ > 1;
-  
-  my $self = bless {}, $class;
-
-  $self->_init($args);
-  }
 
 sub _init
   {
@@ -49,6 +34,9 @@ sub _init
 
   $self->{border} = 'solid';
   $self->{name} = 'Group #'. $self->{id};
+  $self->{label} = '';
+  $self->{class} = 'group';
+  $self->{cells} = {};
 
   # XXX TODO check arguments
   foreach my $k (keys %$args)
@@ -60,55 +48,6 @@ sub _init
   $self->{error} = '';
 
   $self;
-  }
-
-sub id
-  {
-  my $self = shift;
-
-  $self->{id};
-  }
-
-sub as_ascii
-  {
-  my ($self) = @_;
-
-  my $txt;
-
-  if ($self->{border} eq 'none')
-    {
-    # 'Sample'
-    for my $l (split /\n/, $self->{name})
-      {
-      $txt .= "$l\n";
-      }
-    }
-  elsif ($self->{border} eq 'solid')
-    {
-    # +--------+
-    # | Sample |
-    # +--------+
-    $txt = '+' . '-' x ($self->{w}-2) . "+\n";
-    for my $l (split /\n/, $self->{name})
-      {
-      $txt .= "| $l |\n";
-      }
-    $txt .= '+' . '-' x ($self->{w}-2) . "+";
-    }
-  else
-    {
-    # ..........
-    # : Sample :
-    # ..........
-    $txt = '.' . '.' x ($self->{w}-2) . ".\n";
-    for my $l (split /\n/, $self->{name})
-      {
-      $txt .= ": $l :\n";
-      }
-    $txt .= '.' . '.' x ($self->{w}-2) . ".";
-    }
-
-  $txt;
   }
 
 sub error
@@ -136,7 +75,7 @@ sub as_txt
     $n->{$name}->{_p} = 1;				# mark as processed
     $txt .= '  ' . $n->{$name}->as_pure_txt() . "\n";
     }
-  $txt .= ")\n";
+  $txt .= ")" . $self->attributes_as_txt() . "\n\n";
   }
 
 #############################################################################
@@ -156,6 +95,29 @@ sub nodes
   ( values %{$self->{nodes}} );
   }
 
+#############################################################################
+
+sub set_attribute
+  {
+  my ($self, $atr, $v) = @_;
+
+  $self->SUPER::set_attribute($atr,$v);
+
+  # if defined attribute "nodeclass", put our nodes into that class
+  if ($atr eq 'nodeclass')
+    {
+    for my $n (keys %{ $self->{nodes} } )
+      {
+      my $node = $self->{nodes}->{$n};
+      $node->sub_class($self->{att}->{nodeclass});
+      }
+    }
+  $self;
+  }
+
+#############################################################################
+# node handling
+
 sub add_node
   {
   my ($self,$n) = @_;
@@ -167,6 +129,11 @@ sub add_node
     }
   $self->{nodes}->{ $n->{name} } = $n;
 
+  # if defined attribute "nodeclass", put our nodes into that class
+  if (exists $self->{att}->{nodeclass})
+    {
+    $n->sub_class($self->{att}->{nodeclass});
+    }
   $self;
   }
 
@@ -184,6 +151,32 @@ sub add_nodes
     $self->{nodes}->{ $n->{name} } = $n;
     }
   $self;
+  }
+
+sub cells
+  {
+  # return all the cells this group currently occupies
+  my $self = shift;
+
+  $self->{cells};
+  }
+
+sub clear_cells
+  {
+  # remove all belonging cells
+  my $self = shift;
+
+  $self->{cells} = {};
+
+  $self;
+  }
+
+sub add_cell
+  {
+  # add a cell to the list of cells this group covers
+  my ($self,$cell) = @_;
+
+  $self->{cells}->{"$cell->{x},$cell->{y}"} = $cell;
   }
 
 1;

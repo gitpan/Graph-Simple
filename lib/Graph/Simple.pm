@@ -8,11 +8,10 @@ package Graph::Simple;
 
 use 5.006001;
 use strict;
-use warnings;
 use Graph::Simple::Node;
 use Graph::Simple::Edge;
-use Graph::Simple::Path;
 use Graph::Simple::Group;
+use Graph::Simple::Group::Cell qw/GROUP_MAX/;
 use Graph::Simple::Layout;
 use Graph::Simple::As_txt;
 use Graph 0.55;
@@ -20,7 +19,7 @@ use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm!
@@ -67,7 +66,7 @@ sub _init
     border => 'none',
     background => 'inherit',
     margin => '0.5em',
-    padding => '0.7em',
+    padding => '0.5em',
     linkbase => '/wiki/index.php/',
     },
   edge => { 
@@ -81,10 +80,12 @@ sub _init
     'line-height' => '0.7em',
     'letter-spacing' => '-0.36em',
     # add padding to the right since letter-spacing contracts the right side
-    'padding-right' => '0.4em',
+    'padding-right' => '0.5em',
     },
   group => { 
     border => '1px dashed black',
+    background => '#a0d0ff',
+    padding => '0.2em',
     },
   };
 
@@ -304,53 +305,96 @@ sub css
     my $c = $class; $c =~ s/\./-/g;			# node.city => node-city
 
     my $cls = '';
-    if ($c !~ /\./)					# one of our primary ones
+    if ($class eq 'graph')
       {
-      # generate also class list 			# like: "cities7,node-rivers"
-      $cls = join ("$id,.$c-", sort keys %{ $class_list->{$c} });
-      $cls = ",.$c-$cls$id" if $cls ne '';		# like: ",node-cities7,node-rivers7"
+      $css .= "table.graph$id {\n";
       }
-    $css .= ".$c$id$cls {\n";
+    else
+      {
+      if ($c !~ /\./)					# one of our primary ones
+        {
+        # generate also class list 			# like: "cities,node-rivers"
+        $cls = join (",table.graph$id .$c-", sort keys %{ $class_list->{$c} });
+        $cls = ", table.graph$id .$c-$cls" if $cls ne '';		# like: ",node-cities,node-rivers"
+        }
+      $css .= "table.graph$id .$c$cls {\n";
+      }
     foreach my $att (sort keys %{$a->{$class}})
       {
       # skip these for CSS
       next if 
-	$att =~ /^(label|linkbase|(auto)?(link|title))\z/;
+	$att =~ /^(label|linkbase|(auto)?(link|title)|nodeclass)\z/;
 
       my $val = $a->{$class}->{$att};
+      # set for inner group cells "border: none"
+      $val = 'none' if $att eq 'border' && $c eq 'group';
       $css .= "  $att: $val;\n";
      
       }
     $css .= "}\n";
     }
 
-  # append CSS for lines/labes (that should be only done if we actually have
-  # edges with labels)
- 
+  # "filler" cells:
+  $css .= "table.graph$id td {\n" . <<CSS
+  padding: 2px;
+  background: inherit;
+  }
+CSS
+;
+
+  # append CSS for group cells (only if we actually have groups)
+  my @groups = $self->groups();
+
+  if (@groups > 0)
+    {
+
+    # important for Mozilla/Gecko
+    $css .= "table.graph$id { border-collapse: collapse; }\n";
+
+    foreach my $group (@groups)
+      {
+      # could include only the ones we actually need
+      my $border = $group->attribute('border'); 
+      my $class = $group->{class}; $class =~ s/.*\.//;	# leave only subclass
+      for (my $i = 1; $i <= GROUP_MAX; $i++)
+	{
+        $css .= Graph::Simple::Group::Cell->_css($self->{id}, $i, $class, $border); 
+	}
+      }
+    my $border = $self->attribute('group','border'); 
+    for (my $i = 1; $i <= GROUP_MAX; $i++)
+      {
+      $css .= Graph::Simple::Group::Cell->_css($self->{id}, $i, '', $border); 
+      }
+    }
+
+  # append CSS for lines/labes (only if we actually have edges with labels)
   my @edges = $self->edges();
 
   my $have_labels = 0;
   for my $edge (@edges)
     {
-    my $label = $edge->{label}; $label = '' unless defined $label;
-    $have_labels = 1, last if $label ne '';
+    my $label = $edge->label();
+    $have_labels = 1, last if defined $label && $label ne '';
     }
 
   $css .= <<CSS
-.label, .line {
+table.graph##id## .label, table.graph##id## .line {
   padding: 0em;
   margin: 0em;
-  position: relative;
-  top: 0.5em;
 }
-.label {
+table.graph##id## .label, table.graph##id## .labelv { 
   font-size: 0.7em;
   letter-spacing: 0em;
-  top: -1.1em;
-  left: -0.3em;
+}
+table.graph##id## .labelv {
+  position: relative;
+  top: -1.1em; 
 }
 CSS
   if $have_labels != 0;
+
+  $css =~ s/##id##/$id/g;
 
   $css;
   }
@@ -369,7 +413,7 @@ sub html_page_header
   -->
  </style>
  </head>
-<body bgcolor=white color=black>
+<body bgcolor=white text=black>
 HTML
 ;
 
@@ -396,6 +440,8 @@ sub as_html_page
   $html;
   }
 
+#############################################################################
+ 
 sub as_html
   {
   # convert the graph to HTML+CSS
@@ -422,11 +468,13 @@ sub as_html
  
   my $id = $self->{id};
  
-  $html .= "\n<table class=\"graph$id\" border=0 cellpadding=4px cellspacing=3px";
+  $html .= "\n<table class=\"graph$id\" cellpadding=4px cellspacing=0";
   $html .= " style=\"$self->{html_style}\"" if $self->{html_style};
   $html .= ">\n";
 
   my $tag = $self->{html_tag} || 'td';
+
+  my $max_cells = 1;
 
   # now run through all rows, and for each of them through all columns 
   for my $y (sort { ($a||0) <=> ($b||0) } keys %$rows)
@@ -434,25 +482,58 @@ sub as_html
 
     $html .= " <tr>\n";
 
-    my $row = '';
+    my @row = ();
+
     # for all possible columns
     for my $x (sort { $a <=> $b } keys %$cols)
       {
       if (!exists $rows->{$y}->{$x})
 	{
-	$row .= "  <$tag></$tag>\n";
+	push @row, undef;
 	next;
 	}
       my $node = $rows->{$y}->{$x};
-      $row .= "  " . $node->as_html('td',$id);
+      push @row, "  " . $node->as_html('td',$id);
       }
 
     # remove trailing empty tag-pairs
-    $row =~ s/\s*<$tag><\/$tag>$// while $row =~ /<$tag><\/$tag>$/;
+    pop @row while (@row > 0 && !defined $row[-1]);
 
+    $max_cells = scalar @row if @row > $max_cells;
+ 
+    # replace undef with empty tags
+    foreach (@row)
+      {
+      $_ = "  <$tag><\/$tag>\n" unless defined $_;
+      }
+
+    # combine equal columns
+    my $i = 0;
+    while ($i < @row)
+      {
+      # count all sucessive equal ones
+      my $j = $i + 1;
+      while ($j < @row && $row[$j] eq $row[$i]) { $j++; }
+      if ($j > $i + 1)
+        {
+        my $cnt = $j - $i - 1;
+        # throw away
+        splice (@row, $i + 1, $cnt); $cnt++;
+        # replace
+        $row[$i] =~ s/<$tag/<$tag colspan=$cnt/;
+        }
+      $i++;
+      }
+    
     # append row to output
-    $html .= $row . " </tr>\n";
+    $html .= join('',@row) . " </tr>\n";
     }
+
+  # Append an empty row - otherwise the distance from the last element/node to
+  # the graph border is at the bottom and right less than at the top and left.
+  
+  $max_cells += 2;				# one more at the right
+  $html .= " <tr><td colspan=$max_cells></td></tr>\n";
 
   $html .= "</table>\n" . $self->{html_footer} . "\n";
   
@@ -494,8 +575,8 @@ sub as_ascii
     my ($x,$y) = split/,/, $k;
     my $node = $cells->{$k};
 
-    # get all possible nodes from $cell (instead of nodes) because
-    # this also includes path nodes
+    # Get all possible nodes from $cell (instead of nodes) because
+    # this also includes edge/group cells
     push @V, $node;
 
     # calc. w from length of name and border style (border style not known
@@ -504,9 +585,13 @@ sub as_ascii
 
     my $w = $node->{w};
     my $h = $node->{h};
+
+    $rows->{$y} = $h if !defined $rows->{$y};
+    $cols->{$x} = $w if !defined $cols->{$x};
+
     # record maximum size for that col/row
-    $rows->{$y} = $h if $h > ($rows->{$y} || 0);
-    $cols->{$x} = $w if $w > ($cols->{$x} || 0);
+    $rows->{$y} = $h if $h >= ($rows->{$y} || 0);
+    $cols->{$x} = $w if $w >= ($cols->{$x} || 0);
     } 
   # now run through all rows/columns and get their absolute pos by taking all
   # previous ones into account
@@ -524,8 +609,6 @@ sub as_ascii
     $cols->{$x} = $pos;
     $pos += $s;
     }
-
-  print STDERR "Have ", scalar @V, " nodes\n" if $self->{debug};
 
   my @fb = ();
   # find out max. dimensions for framebuffer
@@ -593,6 +676,8 @@ sub add_edge
   $x->{graph} = $self;
   $y->{graph} = $self;
   $edge->{graph} = $self;
+  $edge->{from} = $x;
+  $edge->{to} = $y;
 
   # add edge from X to Y (and X and Y)
   $g->add_edge( $x->{name}, $y->{name} );
@@ -634,6 +719,9 @@ sub add_group
 
   # index under the group name for easier lookup
   $self->{groups}->{ $group->{name} } = $group;
+
+  # register group with ourself  
+  $group->{graph} = $self;
  
   $self;
   }

@@ -7,11 +7,10 @@ package Graph::Simple::Node;
 
 use 5.006001;
 use strict;
-use warnings;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 
@@ -103,11 +102,15 @@ sub as_ascii
 
   my $txt;
 
-  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+  my $name = $self->{name};
 
   # XXX TODO: handle length("$l") < $w in code below
  
   my $border = $self->attribute('border') || 'none';
+
+  # XXX TODO: borders for groups in ASCII output
+  $border = 'none' if ref($self) =~ /Group/;
+
   if ($border eq 'none')
     {
     # 'Sample'
@@ -129,7 +132,6 @@ sub as_ascii
       }
     $txt .= '+' . '-' x ($self->{w}-2) . "+";
     }
-  # XXX TODO: handle "dotted", "dashed"
   else
     {
     # ..........
@@ -142,6 +144,7 @@ sub as_ascii
       }
     $txt .= '.' . '.' x ($self->{w}-2) . ".";
     }
+  # XXX TODO: handle "dashed"
 
   $txt;
   }
@@ -225,8 +228,9 @@ sub as_html
 
   my $class = $self->class();
   my $c = $class; $c =~ s/\./-/g;	# node.city => node-city
-  my $html = "<$tag class='$c$id'";
-  
+  my $html = "<$tag";
+  $html .= " class='$c'" if $class ne '';
+
   my $style = '';
   my $a = $self->{att};
   for my $atr (sort keys %$a)
@@ -243,7 +247,7 @@ sub as_html
 #      {
 #      print STDERR "Node $self->{name} is not associated with a graph!\n";
 #      }
-    next unless defined $self->{graph};
+    next unless ref($self->{graph}) =~ /Graph/;
     
     my $DEF = $self->{graph}->attribute ($class, $atr);
     next if defined $DEF && $a->{$atr} eq $DEF;
@@ -272,16 +276,21 @@ sub as_html
     $title =~ s/"/''/g;				# remove quotation mark
     $html .= " title=\"$title\"";		# cell with mouse-over title
     }
-  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+#  my $name = $self->{name};
+  my $name = $self->label(); 
 
   if (!$noquote)
     {
-    $name =~ s/&/&amp;/g;				# quote &
-    $name =~ s/>/&gt;/g;				# quote >
-    $name =~ s/</&lt;/g;				# quote <
+#    $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
 
-    $name =~ s/\n/<br>/g;				# |\n|\nv => |<br>|<br>v
+    $name =~ s/&/&amp;/g;			# quote &
+    $name =~ s/>/&gt;/g;			# quote >
+    $name =~ s/</&lt;/g;			# quote <
+
+    $name =~ s/([^\\])\\n/$1\n/g;		# "\\n" to "\n" (but not "\\\n")
+    $name =~ s/\n/<br>/g;			# |\n|\nv => |<br>|<br>v
     $name =~ s/^\s*<br>//;			# remove empty leading line
+    $name =~ s/<br>/<br \/>/g;			# correct <br>
     }
 
   my $link = $self->attribute('link');
@@ -454,10 +463,13 @@ sub attribute
     my $att = $self->{graph}->attribute ('group.' . $group, $atr);
     return $att if defined $att;
     }
+  
+  # try "group.class" first:
+  my $att = $self->{graph}->attribute ($class, $atr);
 
   my $c = $class; $c =~ s/\.(.*)//;		# remove subclass
 
-  my $att = $self->{graph}->attribute ($c, $atr);
+  $att = $self->{graph}->attribute ($c, $atr) unless defined $att;
 
   # If neither our group nor our parent class had the attribute, try to
   # inherit it from "graph":
@@ -482,6 +494,11 @@ sub set_attribute
   if ($atr eq 'class')
     {
     $self->sub_class($val);
+    return $self;
+    }
+  if ($atr eq 'group')
+    {
+    $self->add_to_groups($val);
     return $self;
     }
   $self->{att}->{$atr} = $val;

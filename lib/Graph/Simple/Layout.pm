@@ -8,7 +8,7 @@ package Graph::Simple::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 #############################################################################
 #############################################################################
@@ -16,8 +16,8 @@ $VERSION = '0.04';
 package Graph::Simple;
 
 use strict;
-use Graph::Simple::Edge;
-use Graph::Simple::Path qw/
+use Graph::Simple::Node::Cell;
+use Graph::Simple::Edge::Cell qw/
   EDGE_SHORT_E
   EDGE_SHORT_W
   EDGE_SHORT_N
@@ -35,6 +35,7 @@ use Graph::Simple::Path qw/
 
   EDGE_HOR
   EDGE_VER
+  EDGE_CROSS
  /;
 
 #############################################################################
@@ -184,9 +185,10 @@ sub layout
  
   $self->error( 'Layouter failed to place and/or connect all nodes' ) if $tries == 0;
 
-  # all things on the stack were done
+  # all things on the stack were done, or we encountered an error
 
-  $self;
+  # fill in group info and return
+  $self->_fill_group_cells($cells);
   }
 
 sub _place_node
@@ -316,10 +318,8 @@ sub _trace_path
      
      while (@coords > 1)				# leave end piece
        {
-       my $start;
        my ($x,$y,$type) = split /,/, shift @coords;
-
-       $self->_put_path($edge,$type,$x,$y);
+       $self->_put_path($edge,$x,$y,$type);
        }
 
      my ($x,$y,$type) = split /,/, shift @coords;
@@ -370,14 +370,14 @@ sub _create_edge
 
   print STDERR "# Found simple path from $src->{name} to $dst->{name}\n" if $self->{debug};
   
-  $self->_put_path($edge,$type,$x,$y);
+  $self->_put_path($edge,$x,$y,$type);
   }
 
 sub _put_path
   {
-  my ($self,$edge,$type,$x,$y) = @_;
+  my ($self,$edge,$x,$y,$type) = @_;
 
-  my $path = Graph::Simple::Path->new( type => $type, edge => $edge, x => $x, y => $y );
+  my $path = Graph::Simple::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
   $path->{graph} = $self;		# register path elements with ourself
   $self->{cells}->{"$x,$y"} = $path;	# store in cells
   }
@@ -395,18 +395,56 @@ sub _trace_straight_path
     
   # if ($dx == 0 && $dy == 0) then we have only a short edge
 
+  my $cells = $self->{cells};
+  my @coords;
+  my ($x,$y) = ($x0+$dx,$y0+$dy);			# starting pos
+
   if ($dx != 0 && $dy != 0)
     {
     # straight path not possible, since x0 != x1 AND y0 != y1
     # XXX TODO: try to trace a path with a bend
 
-    return ();
+    #           "  |"                        "|   "
+    # try first "--+" (aka hor => ver), then "+---" (aka ver => hor)
+    my $done = 0;
+
+    # try hor => ver
+    my $type = EDGE_HOR;
+
+    while ($x != $x1)
+      {
+      $done++, last if exists $cells->{"$x,$y"};	# cell already full
+
+      push @coords, "$x,$y," . $type;		# good one, is free
+      $x += $dx;				# next field
+#     print STDERR "at $x $y ($x0,$y0 => $x1,$y1) $dx $dy\n"; sleep(1);
+      };
+
+    if ($done == 0 && @coords > 0)
+      {
+      ($x,$y,$type) = split/,/, pop @coords;	# remove last step
+      # XXX TODO: generate proper bend
+      $type = EDGE_CROSS;
+      push @coords, "$x,$y," . $type;		# put in bend
+
+      while ($y != $y1)
+        {
+        $done++, last if exists $cells->{"$x,$y"};	# cell already full
+
+        push @coords, "$x,$y," . $type;		# good one, is free
+        $y += $dy;				# next field
+#         print STDERR "at $x $y $dx $dy\n"; sleep(1);
+        }
+      }
+
+    $done = 1;
+    if ($done != 0)
+      {
+      # try ver => hor
+      }
+    return () if $done > 0;			# couldn't find one
     }
 
-  my $cells = $self->{cells};
-
-  my ($x,$y) = ($x0+$dx,$y0+$dy);			# starting pos
-  my @coords;
   my $type = EDGE_HOR; $type = EDGE_VER if $dx == 0;	# - or |
   do
     {
@@ -416,7 +454,7 @@ sub _trace_straight_path
     push @coords, "$x,$y," . $type;		# good one, is free
     $x += $dx;					# next field
     $y += $dy;
-    } while ($x != ($x1) || $y != ($y1));
+    } while (($x != $x1) || ($y != $y1));
   ($dx,$dy,@coords);				# return all fields of path
   }
 
@@ -436,6 +474,141 @@ sub _remove_path
     delete $cells->{$key};
     }
   $edge->clear_cells();
+  }
+
+#############################################################################
+
+sub _fill_group_cells
+  {
+  # after doing a layout(), we need to add the group to each cell based on
+  # what group the nearest node is in.
+  my ($self, $cells_layout) = @_;
+
+  # if layout not done yet, do so
+  $self->layout() unless defined $self->{score};
+
+  # We need to insert "filler" cells around each node/edge/cell. If we do not
+  # have groups, this will ensure that nodes in two consecutive rows do not
+  # stick together. (We could achive the same effect with "cellpadding=3" on
+  # the table, but the cellpadding area cannot be have a different background
+  # color, which leaves ugly holes in colored groups).
+
+  # To "insert" the filler cells, we simple multiply each X and Y by 2, this
+  # is O(N) where N is the number of actually existing cells. Otherwise we
+  # would have to create the full table-layout, and then insert rows/columns.
+
+  my $cells = {};
+  for my $key (keys %$cells_layout)
+    {
+    my ($x,$y) = split /,/, $key;
+    my $cell = $cells_layout->{$key};
+    $x *= 2;
+    $y *= 2;
+    $cell->{x} = $x;
+    $cell->{y} = $y;
+    $cells->{"$x,$y"} = $cells_layout->{$key};
+    # now insert filler cells above and left of this cell
+    $x -= 1;
+    $cells->{"$x,$y"} = Graph::Simple::Node::Cell->new ( graph => $self );
+    $y -= 1;
+    $cells->{"$x,$y"} = Graph::Simple::Node::Cell->new ( graph => $self );
+    $x += 1;
+    $cells->{"$x,$y"} = Graph::Simple::Node::Cell->new ( graph => $self);
+    }
+
+  $self->{cells} = $cells;		# override with new cell layout
+
+  # take a shortcut if we do not have groups
+  return $self if $self->groups == 0;
+  
+  # for all nodes, set sourounding cells to group
+  for my $key (keys %$cells)
+    {
+    my $n = $cells->{$key};
+    my $xn = $n->{x}; my $yn = $n->{y};
+    next unless defined $xn && defined $yn;	# only if node was placed
+
+    next if ref($n) =~ /(Group|Node)::Cell/;
+
+    my $group;
+
+    if (ref($n) =~ /Node/)
+      {
+      my @groups = $n->groups();
+
+      # XXX TODO: handle nodes with more than one group
+      next if @groups != 1;			# no group? or more than one?
+      $group = $groups[0];
+      }
+    elsif (ref($n) =~ /Edge/)
+      {
+      my $edge = $n;
+      $edge = $edge->{edge} if ref($n) =~ /Cell/;
+
+      # find out whether both nodes have the same group
+      my $left = $edge->from();
+      my $right = $edge->to();
+      my @l_g = $left->groups();
+      my @r_g = $right->groups();
+      if (@l_g == @r_g && @l_g > 0 && $l_g[-1] == $r_g[-1])
+        {
+        # edge inside group
+        $group = $l_g[-1];
+        }
+      }
+
+    next unless defined $group;
+
+    my $background = $group->attribute( 'background' );
+
+    # XXX TODO: take nodes with more than one cell into account
+    for my $x ($xn-1 .. $xn+1)
+      {
+      for my $y ($yn-1 .. $yn+1)
+	{
+	my $cell;
+
+	if (!exists $cells->{"$x,$y"})
+	  {
+	  $cell = Graph::Simple::Group::Cell->new (
+	    group => $group, graph => $self,
+	    );
+	  }
+        else
+          {
+	  $cell = $cells->{"$x,$y"};
+
+	  # convert filler cells to group cells
+          if (ref($cell) !~ /(Node\z|Edge)/)
+	    {
+	    $cell = Graph::Simple::Group::Cell->new (
+	      graph => $self, group => $group,
+ 	      );
+            }
+	  else
+	    {
+            if (ref($cell) =~ /Edge/)
+	      {
+              # add the edge-cell to the group
+	      $cell->{groups}->{ $group->{name} } = $group;
+	      }
+	    }
+          }
+	$cells->{"$x,$y"} = $cell;
+	$cell->{x} = $x;
+	$cell->{y} = $y;
+	# override the background attribute with the one from the group
+        $cell->set_attribute('background', $background ) unless ref($cell) =~ /Node/;
+	}
+      }
+    }
+  # for all group cells, set their right type (for border) depending on
+  # neighbour cells
+  for my $key (keys %$cells)
+    {
+    my $cell = $cells->{$key};
+    $cell->_set_type($cells) if ref($cell) =~ /Group::Cell/;
+    }
   }
 
 1;

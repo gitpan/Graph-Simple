@@ -167,3 +167,30 @@ Renamed to Graph::Simple:
     knows as_txt(); The other two, as_html() and as_ascii() are handled by
     Path.pm (for each element of the edge seperately)
   * more syntax examples
+
+2005-02-07 v0.12 Tels 345 tests - Group, group, group, group the nodes...
+  * register groups with the graph when adding them
+  * Parser: parse attributes on groups like: "( Group [ Node ] ) { ... }"
+  * Parser: parse attributes on edges like: "[ 1 ] -> { ... } [ 2 ]"
+  * Group: handle attribute "nodeclass" - put nodes into that class
+  * Node: handle attribute "group" - puts node into that group
+  * Node: query "node.class" from graph before trying just "node"
+  * Node: convert literal "\n" in label/name to "<br>"
+  * Layout: padd around all cells with filler cells (to make group backgrounds
+    really work)
+  * Layout: cleanup on group output
+  * as_txt(): output attributes of a group
+  * add Graph::Simple::Node::Cell, Graph::Simple::Group::Cell
+  * moved Graph::Simple::Path to Graph::Simple::Edge::Cell
+  * Graph: shorten HTML output by combining table cells with colspan=X
+  * Graph: use CSS child selectors to shorten classnames (and remove
+    class='fill' or class='' from output)
+  * Graph: as_html(): fix IDs on labels, lines etc
+  * Graph: fix layout code for edges with labels: no longer needs position:
+    relative, allows better copy&paste and is not garbled on scrolling
+  * syntax.pl: support custom template name
+  * simplifiy and generalize t/simple.t
+  * always run test files under -w
+  * don't use warnings (for older perls)
+  * remove needless routines in subclasses of "Node"
+  * use Test::Differences if t/ascii.t fails

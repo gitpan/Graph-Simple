@@ -1,9 +1,11 @@
+#!/usr/bin/perl -w
+
 use Test::More;
 use strict;
 
 BEGIN
    {
-   plan tests => 23;
+   plan tests => 57;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -25,8 +27,6 @@ can_ok ("Graph::Simple", qw/
   id
   group groups add_group del_group
   /);
-
-use Graph::Simple::Group;
 
 #############################################################################
 # layout tests
@@ -86,39 +86,7 @@ is ($graph->attribute('graph', 'background'), 'red',
 is ($graph->attribute('graph', 'color'), 'white', 
 	'now: graph { color: white }');
 
-is ($graph->css(), <<HERE
-.edge {
-  background: inherit;
-  border: none;
-  font-family: monospaced, courier-new, courier, sans-serif;
-  letter-spacing: -0.36em;
-  line-height: 0.7em;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-right: 0.4em;
-  text-align: center;
-}
-.graph {
-  background: red;
-  border: none;
-  color: white;
-  margin: 0.5em;
-  padding: 0.7em;
-}
-.group {
-  border: 1px dashed black;
-}
-.node {
-  background: white;
-  border: 1px solid black;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-left: 0.3em;
-  padding-right: 0.3em;
-  text-align: center;
-}
-HERE
-, 'css()');
+good_css ($graph);
 
 #############################################################################
 # ID tests
@@ -127,82 +95,17 @@ is ($graph->id(), '', 'id is empty string');
 
 is ($graph->id('42'), '42', 'id is now 42');
 
-is ($graph->css(), <<HERE
-.edge42 {
-  background: inherit;
-  border: none;
-  font-family: monospaced, courier-new, courier, sans-serif;
-  letter-spacing: -0.36em;
-  line-height: 0.7em;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-right: 0.4em;
-  text-align: center;
-}
-.graph42 {
-  background: red;
-  border: none;
-  color: white;
-  margin: 0.5em;
-  padding: 0.7em;
-}
-.group42 {
-  border: 1px dashed black;
-}
-.node42 {
-  background: white;
-  border: 1px solid black;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-left: 0.3em;
-  padding-right: 0.3em;
-  text-align: center;
-}
-HERE
-, 'css() with id');
-
+good_css($graph);
 
 #############################################################################
 # ID tests with sub-classes
 
 $graph->set_attributes ('node.cities', { color => '#808080' } );
 
-is ($graph->css(), <<HERE
-.edge42 {
-  background: inherit;
-  border: none;
-  font-family: monospaced, courier-new, courier, sans-serif;
-  letter-spacing: -0.36em;
-  line-height: 0.7em;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-right: 0.4em;
-  text-align: center;
-}
-.graph42 {
-  background: red;
-  border: none;
-  color: white;
-  margin: 0.5em;
-  padding: 0.7em;
-}
-.group42 {
-  border: 1px dashed black;
-}
-.node42,.node-cities42 {
-  background: white;
-  border: 1px solid black;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-left: 0.3em;
-  padding-right: 0.3em;
-  text-align: center;
-}
-.node-cities42 {
-  color: #808080;
-}
-HERE
-, 'css() with sub-classes');
+good_css($graph, 
+  'table.graph42 .node-cities',
+  'table.graph42 .node, table.graph42 .node-cities'
+  );
 
 #############################################################################
 # group tests
@@ -267,42 +170,30 @@ $graph->set_attributes ('node',
   { link => 123, title => 123, autolink => 'name', autotitle => 'name' } );
 $graph->set_attributes ('graph', { linkbase => '123/' } );
 
-is ($graph->css(), <<HERE
-.edge42 {
-  background: inherit;
-  border: none;
-  font-family: monospaced, courier-new, courier, sans-serif;
-  letter-spacing: -0.36em;
-  line-height: 0.7em;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-right: 0.4em;
-  text-align: center;
-}
-.graph42 {
-  background: red;
-  border: none;
-  color: white;
-  margin: 0.5em;
-  padding: 0.7em;
-}
-.group42 {
-  border: 1px dashed black;
-}
-.node42,.node-cities42 {
-  background: white;
-  border: 1px solid black;
-  margin: 0.1em;
-  padding: 0.2em;
-  padding-left: 0.3em;
-  padding-right: 0.3em;
-  text-align: center;
-}
-.node-cities42 {
-  color: #808080;
-}
-HERE
-, 'css() with non-css attributes link|title|linkbase etc');
+good_css ($graph);
 
+1; # all tests done
 
+#############################################################################
+
+sub good_css
+  {
+  my $graph = shift;
+
+  my $css = $graph->css();
+
+  foreach my $class (qw/edge group/, )
+    {
+    like ($css, qr/table\.graph\d* \.$class/, "$class in css");
+    }
+  like ($css, qr/graph\d* \{/, "graph in css");
+  foreach my $add (@_)
+    {
+    like ($css, qr/$add/, "$add in css");
+    }
+  foreach my $attr (qw/link label title linkbase autotitle autolabel/)
+    {
+    unlike ($css, qr/$attr/, "$attr not in css");
+    }
+  }
 

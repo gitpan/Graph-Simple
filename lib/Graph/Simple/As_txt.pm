@@ -76,7 +76,6 @@ sub as_txt
  
   $txt .= "\n" if $count > 0;		# insert a newline
 
-  $count = 0;
   # output groups first, with their nodes
   foreach my $gn (sort keys %{$self->{groups}})
     {
@@ -84,8 +83,6 @@ sub as_txt
     $txt .= $group->as_txt();		# marks nodes as processed if nec.
     $count++;
     }
-
-  $txt .= "\n" if $count > 0;		# insert a newline
 
   foreach my $n (@nodes)
     {

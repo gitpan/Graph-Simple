@@ -1,3 +1,5 @@
+#!/usr/bin/perl -w
+
 use Test::More;
 use strict;
 
@@ -7,7 +9,7 @@ BEGIN
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok qw/Graph::Simple::Edge/;
-   use_ok qw/Graph::Simple::Path/;
+   use_ok qw/Graph::Simple::Edge::Cell/;
    }
 
 can_ok ("Graph::Simple::Edge", qw/
@@ -24,7 +26,7 @@ can_ok ("Graph::Simple::Edge", qw/
   groups
   /);
   
-use Graph::Simple::Path qw/EDGE_SHORT_E/;
+use Graph::Simple::Edge::Cell qw/EDGE_SHORT_E/;
 
 #############################################################################
 
@@ -48,7 +50,7 @@ is ($edge->as_txt(), ' ==> ', '"==>"');
 
 is (scalar keys %{$edge->cells()}, 0, 'no cells');
 
-my $path = Graph::Simple::Path->new (
+my $path = Graph::Simple::Edge::Cell->new (
   type => EDGE_SHORT_E,
   x => 1, y => 1,
 );

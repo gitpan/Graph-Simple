@@ -7,14 +7,13 @@ package Graph::Simple::Edge;
 
 use 5.006001;
 use strict;
-use warnings;
 use Graph::Simple::Node;
 
 use vars qw/$VERSION @ISA/;
 
 @ISA = qw/Graph::Simple::Node/;		# an edge is a special node
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 #############################################################################
 
@@ -38,7 +37,6 @@ sub _init
   
   # '-->', '<->', '==>', '<==', '..>' etc
   $self->{style} = '--';
-  $self->{label} = '';
 
   $self->{class} = 'edge';
   $self->{cells} = { };
@@ -48,7 +46,8 @@ sub _init
     {
     $self->{$k} = $args->{$k};
     }
-  $self->{label} = $self->{name} if defined $self->{name};
+
+  $self->{att}->{label} = $self->{name};
   
   $self->{error} = '';
 
@@ -68,7 +67,8 @@ sub as_txt
   my $self = shift;
 
   # '- Name ' or ''
-  my $n = $self->{label};
+  my $n = $self->{att}->{label}; $n = '' unless defined $n;
+
   $n = '- ' . $n . ' ' if $n ne '';
 
   # ' - Name -->' or ' --> '
@@ -109,6 +109,20 @@ sub add_cell
   my ($self,$cell) = @_;
   
   $self->{cells}->{"$cell->{x},$cell->{y}"} = $cell;
+  }
+
+sub from
+  {
+  my $self = shift;
+
+  $self->{from};
+  }
+
+sub to
+  {
+  my $self = shift;
+
+  $self->{to};
   }
 
 1;

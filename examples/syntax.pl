@@ -21,13 +21,14 @@ use Graph::Simple::Parser;
 
 my $parser = Graph::Simple::Parser->new( debug => 0);
 
-my ($name,@dirs) = @ARGV;
+my ($name, $template, $sep, @dirs) = @ARGV;
 
 $name = 'Graph::Simple Test page' unless $name;
+$template = 'syntax.tpl' unless $template;
 
 my @toc = ();
 
-open FILE, 'syntax.tpl' or die ("Cannot read 'syntax.tpl': $!");
+open FILE, $template or die ("Cannot read 'syntax.tpl': $!");
 local $/ = undef;
 my $html = <FILE>;
 close FILE;
@@ -127,6 +128,8 @@ sub out
   # get comment
   $txt =~ /^\s*#\s*(.*)/;
   my $comment = ucfirst($1 || '');
+  my $link;
+  $link = $1 if $txt =~ /\n#\s*(http.*)/;
 
   my $name = $comment || $t;
   push @toc, [ $n, $name ];
@@ -136,30 +139,48 @@ sub out
   "<!--\n" .
   $graph->css() . 
   "-->\n" .
-  "</style>\n" .
+  "</style>\n";
 
-  "<a name=\"$n\"></a><h2>$dir: $name</h2>\n" .
-  "<a class='top' href='#top' title='Go to the top'>Top -^</a>\n".
-   "<div class='text'>\n" .
- 
-   "<div style='float: left;'>\n" . 
-   " <h3>Input</h3>\n" . 
-   " <pre>$txt</pre>\n</div>"; 
+  if (!$sep)
+    {
+    $out .=
+    "<a name=\"$n\"></a><h2>$dir: $name</h2>\n" .
+    "<a class='top' href='#top' title='Go to the top'>Top -^</a>\n".
+     "<div class='text'>\n"; 
   
-  $out .= "<span style='color: red; font-weight: bold;'>Error:</span>" .
-    $graph->error() if $graph->error();
+    $out .= "<span style='color: red; font-weight: bold;'>Error: </span>" .
+      $graph->error() if $graph->error();
 
-  $out .=
+    my $input =  
+     "<div style='float: left;'>\n" . 
+     " <h3>Input</h3>\n" . 
+     " <pre>$txt</pre>\n</div>" . 
+     "<div style='float: left;'>\n" . 
+     " <h3>As Text</h3>\n" . 
+     "<pre>" . $graph->as_txt() . "</pre>\n</div>";
+ 
+    $out .= $input .
+     "<div style='float: left;'>\n" . 
+     "<h3>As HTML:</h3>\n" . 
+     $graph->$method() . "\n</div>\n";
+    $out .= "<div class='clear'>&nbsp;</div></div>\n\n";
+    }
+  else
+    {
 
-   "<div style='float: left;'>\n" . 
-   " <h3>As Text</h3>\n" . 
-   "<pre>" . $graph->as_txt() . "</pre>\n</div>" . 
+    $out .=
+    "<a name=\"$n\"></a><h3>$name</h3>\n";
 
-   "<div style='float: left;'>\n" . 
-   "<h3>As HTML:</h3>\n" . 
-   $graph->$method() . "\n</div>\n" .
+    $out .= "<a class='top' href='#top' title='Go to the top'>Top -^</a>\n";
+    $out .= "<a class='top' href='$link' style='color: red;'>Source</a>\n" if $link;
 
-   "<div class='clear'>&nbsp;</div></div>\n\n";
+    $out .= "<span style='color: red; font-weight: bold;'>Error: </span> " .
+      $graph->error() if $graph->error();
+
+    $out .= $graph->$method() . "\n" .
+            "<div class='clear'></div>\n\n";
+    # write out the input/text 
+    }
 
   $out;
   }

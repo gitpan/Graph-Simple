@@ -8,12 +8,11 @@ package Graph::Simple::Parser;
 
 use 5.006001;
 use strict;
-use warnings;
 use Graph::Simple;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 sub new
   {
@@ -175,7 +174,7 @@ sub from_text
       $line =~ s/^$qr_group_start/\[/;
       }
     # ) # group end
-    elsif ($line =~ /^$qr_group_end/)
+    elsif ($line =~ /^$qr_group_end$qr_oatr/)
       {
 
       if (@group_stack == 0)
@@ -183,9 +182,12 @@ sub from_text
         $self->error("Found unexpected group end at line $nr");
         return undef;
         }
-      pop @group_stack;
+      my $group = pop @group_stack;
 
-      $line =~ s/^$qr_group_end//;
+      my $a1 = $self->_parse_attributes($1||'');	# group attributes
+      $group->set_attributes($a1);
+
+      $line =~ s/^$qr_group_end$qr_oatr//;
       }
     # [ Berlin ] { color: red; }
     elsif ($line =~ /^$qr_node$qr_oatr/)
@@ -212,14 +214,16 @@ sub from_text
       $line =~ s/^$qr_comma$qr_node$qr_oatr//;
       }
     # Things like "[ Node ]" will be consumed before, so we do not need a case
-    # for "[ A ] -> [ B ]".
-
-    # node chain continued like "-> [ Kassel ]"
-    elsif (@stack != 0 && $line =~ /^$qr_edge$qr_node$qr_oatr/)
+    # for "[ A ] -> [ B ]":
+    # node chain continued like "-> { ... } [ Kassel ] { ... }"
+    elsif (@stack != 0 && $line =~ /^$qr_edge$qr_oatr$qr_node$qr_oatr/)
       {
-      my $n = $6;					# node name
-      my $ed = $2; my $en = $3 || '';			# edge style and label
-      my $a1 = $self->_parse_attributes($7||'');	# node attributes
+      my $n = $7;					# node name
+      my $ed = $2 || ''; my $en = $3 || '';		# edge style and label
+      my $ed2 = $4 || '';
+      my $ea = $6 || '';				# save edge attributes
+      my $a1 = $self->_parse_attributes($8||'');	# node attributes
+      $ea = $self->_parse_attributes($ea);		# parse edge attributes
 
       # strip trailing spaces
       $en =~ s/\s*\z//;
@@ -235,7 +239,11 @@ sub from_text
       foreach my $node (@stack)
         {
         my $edge = $e->new( { style => $style, name => $en } );
+        $edge->set_attributes($ea);
 #        print STDERR "# continued: edge from $node->{name} => $node_b->{name}\n";
+
+	# XXX TODO: what happens if edge already exists?
+
         $graph->add_edge ( $node, $node_b, $edge );
         }
 #      print STDERR "# handled stack\n";
@@ -243,7 +251,7 @@ sub from_text
       # remember the right side
       @stack = ($node_b);
 
-      $line =~ s/^$qr_edge$qr_node$qr_oatr//;
+      $line =~ s/^$qr_edge$qr_oatr$qr_node$qr_oatr//;
       }
     else
       {
@@ -309,8 +317,9 @@ sub _match_attributes
 sub _match_optional_attributes
   {
   # return a regexp that matches something like " { color: red; }" and returns
-  # the inner text without the {}
-  qr/(\s*\{\s*[^\}]+?\s*\})?/;
+  # the inner text with the {}
+  #qr/(\s*\{\s*[^\}]+?\s*\})?/;
+  qr/(\s*\{[^\}]+?\})?/;
   }
 
 sub _match_node

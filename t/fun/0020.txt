@@ -1,3 +1,5 @@
+# Enlightment
+# http://bloodgate.com/perl/graph/
 
  [ Textual description ] { background: #804020; }
 -> [ Parser ] { background: #a06040; }

@@ -1,3 +1,5 @@
+#!/usr/bin/perl -w
+
 use Test::More;
 use strict;
 
@@ -5,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 22;
+   plan tests => 25;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -62,7 +64,16 @@ foreach my $f (@files)
     $txt =~ s/(^|\n)\s+/$1/g;
     }
 
-  is ($graph->as_txt(), $txt, "$f as_txt");
+  if (!
+    is ($graph->as_txt(), $txt, "$f as_txt"))
+    {
+    require Test::Differences;
+
+    if (defined $Test::Differences::VERSION)
+      {
+      Test::Differences::eq_or_diff ($graph->as_txt(), $txt);
+      }
+    }
 
   # print a debug output
   my $debug = $ascii;

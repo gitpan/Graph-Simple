@@ -1,9 +1,11 @@
+#!/usr/bin/perl -w
+
 use Test::More;
 use strict;
 
 BEGIN
    {
-   plan tests => 11;
+   plan tests => 19;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Group") or die($@);
@@ -18,8 +20,9 @@ can_ok ("Graph::Simple::Group", qw/
   add_node
   add_nodes
   nodes
-  id
   /);
+
+use Graph::Simple::Group::Cell qw/GROUP_INNER GROUP_ALL GROUP_LEFT/;
 
 #############################################################################
 
@@ -29,9 +32,7 @@ is (ref($group), 'Graph::Simple::Group');
 
 is ($group->error(), '', 'no error yet');
 
-is ($group->id(), 0, 'id == 0');
-
-is ($group->as_txt(), "( Group \\#0\n)\n", 'as_txt (empty group)');
+is ($group->as_txt(), "( Group \\#0\n)\n\n", 'as_txt (empty group)');
 is (scalar $group->nodes(), 0, 'no nodes in group');
 
 my $first = Graph::Simple::Node->new( name => 'first' );
@@ -48,7 +49,54 @@ is ($group->as_txt(), <<HERE
   [ first ]
   [ second ]
 )
+
 HERE
 , 'as_txt (group with two nodes)');
 
+#############################################################################
+# attribute nodeclass
+
+$group = Graph::Simple::Group->new();
+$group->set_attributes ( { 'nodeclass' => 'city', } );
+
+is ($first->class(),'node', 'class is "node"');
+
+$group->add_node($first);
+
+is ($first->class(),'node.city', 'class is now "node.city"');
+
+#############################################################################
+# Group::Cells
+
+my $cell = Graph::Simple::Group::Cell->new( group => $group );
+
+is ($cell->type(), GROUP_INNER, 'group_inner as default');
+
+$cell->{x} = 0; $cell->{y} = 0;
+my $cells = { '0,0' => $cell };
+
+$cell->_set_type( $cells );
+
+is ($cell->type(), GROUP_ALL, 'GROUP_ALL');
+is ($cell->class(), 'groupall', 'groupall');
+
+is ($cell->group( $group->{name} ), $group, "group()");
+
+my $cell2 = Graph::Simple::Group::Cell->new( group => $group );
+$cell2->{x} = 1; $cell2->{y} = 0;
+$cells->{'1,0'} = $cell2;
+
+my $cell3 = Graph::Simple::Group::Cell->new( group => $group );
+$cell3->{x} = 0; $cell3->{y} = -1;
+$cells->{'0,-1'} = $cell3;
+
+my $cell4 = Graph::Simple::Group::Cell->new( group => $group );
+$cell4->{x} = 0; $cell4->{y} = +1;
+$cells->{'0,1'} = $cell4;
+
+is ($cell2->group( $group->{name} ), $group, "group()");
+
+$cell->_set_type( $cells );
+is ($cell->type(), GROUP_LEFT, 'GROUP_LEFT');
+is ($cell->class(), 'groupl', 'groupl');
 

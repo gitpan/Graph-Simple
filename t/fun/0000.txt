@@ -1,5 +1,5 @@
-# Example from the Graphviz extension at http://wickle.com:
-# See http://www.wickle.com/wiki/index.php/Graphviz_extension
+# Example from Graphviz extension
+# http://www.wickle.com/wiki/index.php/Graphviz_extension
 
 node.red { background: red; }
 

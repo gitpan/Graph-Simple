@@ -3,15 +3,14 @@
 #
 #############################################################################
 
-package Graph::Simple::Path;
+package Graph::Simple::Edge::Cell;
 
 use 5.006001;
 use strict;
-use warnings;
-require Exporter;
+use Graph::Simple::Edge;
 
 use vars qw/$VERSION @EXPORT_OK @ISA/;
-@ISA = qw/Exporter/;
+@ISA = qw/Exporter Graph::Simple::Edge/;
 
 $VERSION = '0.01';
 
@@ -95,7 +94,7 @@ my @edge_content =
 
   # ASCII,		HTML,			# type
   "\n -->",		'------>',		# EDGE_SHORT_E
-  "  ^\n  |  \n|",	"^\n|\n|",		# EDGE_SHORT_N
+  "  ^\n  |  \n  |",	"^\n|\n|",		# EDGE_SHORT_N
   "\n <--",		'<------',		# EDGE_SHORT_W
   "  |\n  |\n  v",	"|\n|\nv",		# EDGE_SHORT_S
 
@@ -116,19 +115,6 @@ my @edge_content =
 
 #############################################################################
 
-sub new
-  {
-  my $class = shift;
-
-  my $args = $_[0];
-  $args = { contents => $_[0] } if ref($args) ne 'HASH' && @_ == 1;
-  $args = { @_ } if ref($args) ne 'HASH' && @_ > 1;
-  
-  my $self = bless {}, $class;
-
-  $self->_init($args);
-  }
-
 sub _init
   {
   # generic init, override in subclasses
@@ -136,7 +122,6 @@ sub _init
   
   $self->{type} = EDGE_SHORT_E;
   $self->{style} = '--';
-  $self->{label} = '';
   
   $self->{x} = 0;
   $self->{y} = 0;
@@ -153,7 +138,11 @@ sub _init
     {
     # register ourselves at this edge
     $self->{edge}->add_cell ($self);
+    # take over settings from edge
     $self->{style} = $self->{edge}->{style};
+    $self->{class} = $self->{edge}->{class};
+    $self->{graph} = $self->{edge}->{graph};
+    $self->{att} = $self->{edge}->{att};
     } 
   $self->{error} = '';
 
@@ -187,27 +176,28 @@ sub _content
 
 sub as_ascii
   {
-  my ($self) = @_;
+  my $self = shift;
 
-  # XXX TODO: set our label as the label of the edge?
-  
-  $self->{edge}->{name} = $self->_content(0);
+  # XXX TODO: include our label
+  $self->{name} = $self->_content(0);
 
-#  print STDERR "path: as_html: $self->{edge}->{name} ($nr)\n";
-  
   # let Graph::Simple::Edge (aka Node) handle the output: 
-  $self->{edge}->as_ascii(@_);
+  $self->SUPER::as_ascii(@_);
   }
 
 sub as_html
   {
   my ($self) = shift;
   
-  $self->{edge}->{name} = $self->_content(1);
+  $self->{name} = $self->_content(1);
+
+  my $id = $self->{graph}->{id};
 
   my $noquote = 0;
   # if we have a label, and are a EDGE_SHORT_E/EDGE_SHORT_W
-  my $label = $self->{edge}->{label}; $label = '' unless defined $label;
+  my $label = $self->{att}->{label};
+  $label = '' unless defined $label;
+
   my $type = $self->{type};
   if ($label ne '')
     {
@@ -222,41 +212,34 @@ sub as_html
       # (letter-spacing * font-size) being about 1.8 plus some spacing left/right
       my $length = int(2 + 0.85 * length($label));
 
-      $self->{edge}->{name} = 
-      "<span class='line'>$left" . ($self->{style} x $length) . "$right</span>\n" .
-      "<br><span class='label'>$label</span>";
+      $self->{name} = 
+      "<span class='label'>$label</span><br>" .
+      "<span class='line'>$left" . ($self->{style} x $length) . "$right</span>\n";
       $noquote = 1;
       } 
     elsif (($type == EDGE_SHORT_N) ||
           ($type == EDGE_SHORT_S))
       {
-      my $up = '';
-      my $down = '';
-      $up = '^' if $type == EDGE_SHORT_N;
-      $down = 'v' if $type == EDGE_SHORT_S;
-  
-      # XXX TODO: labels on vertical edges are still missing
-
       # twice the length of the label is about right, due to 0.7 * 0.8
       # (letter-spacing * font-size) being about 1.8 plus some spacing left/right
-      my $name = $self->{edge}->{name}; 
+      my $name = $self->{name}; 
       $name =~ s/&/&amp;/g;
       $name =~ s/</&lt;/g;
       $name =~ s/</&gt;/g;
       $name =~ s/\n/<br>/g;
  
-      my $x = sprintf("%0.2f", length($label) * 0.35 + 0.7);
-      $self->{edge}->{name} = 
-      "<span class='line'>$name</span>\n" .
-      "<br><span class='label' style='left: $x"."em'>$label</span>";
+      my $x = sprintf("%0.2f", length($label) * 0.35 + 0.2);
+      $self->{name} = 
+      "<span class='line'>$name</span>" .
+      "<span class='labelv' style='left: $x"."em'>$label</span>\n";
       $noquote = 1;
       }
     } # end of label handling code 
 
-#  print STDERR "path: as_html: '$label' $self->{edge}->{name}\n";
+#  print STDERR "path: as_html: '$label' $self->{name}\n";
 
   # let Graph::Simple::Edge (aka Node) handle the output: 
-  $self->{edge}->as_html($_[0], $_[1], $noquote);
+  $self->SUPER::as_html($_[0], $_[1], $noquote);
   }
 
 sub error
@@ -274,50 +257,9 @@ sub label
   {
   my $self = shift;
 
-  $self->{label};
-  }
+  my $n = $self->{name}; $n = '' unless defined $n;
 
-sub style
-  {
-  my $self = shift;
-
-  $self->{style} = $_[0] if defined $_[0];
-  $self->{style};
-  }
-
-sub x
-  {
-  my $self = shift;
-
-  $self->{x};
-  }
-
-sub width
-  {
-  my $self = shift;
-
-  $self->{w};
-  }
-
-sub height
-  {
-  my $self = shift;
-
-  $self->{h};
-  }
-
-sub y
-  {
-  my $self = shift;
-
-  $self->{y};
-  }
-
-sub pos
-  {
-  my $self = shift;
-
-  ($self->{x},$self->{y});
+  $n;
   }
 
 sub type
@@ -368,18 +310,21 @@ sub _correct_w
       }
     else
       {
-      $self->{w} = $chars + 4;
+      $self->{w} = $chars + 3;
       }
     }
   }
 
 #############################################################################
-# a path simple uses the attributes from the edge it belongs to
+# attribute handling
 
 sub attribute
   {
   my ($self, $atr) = @_;
 
+  return $self->{att}->{$atr} if exists $self->{att}->{$atr};
+
+  # if not set, path simple uses the attributes from the edge it belongs to
   $self->{edge}->attribute($atr);
   }
 
@@ -388,7 +333,7 @@ __END__
 
 =head1 NAME
 
-Graph::Simple::Path - A path-element in an edge
+Graph::Simple::Edge::Cell - A path-element in an edge
 
 =head1 SYNOPSIS
 

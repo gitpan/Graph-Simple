@@ -1,0 +1,48 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.42.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+SHA1 1dd02ee014ff6967394b6ddea3844aa8d3197312 CHANGES
+SHA1 02154445bc9831e791c35050f1a018ed99030016 LICENSE
+SHA1 82af6651cc1d06f1a29825bbabab5d9d07a5c368 MANIFEST
+SHA1 b1e79ff34434243353742cee1c02436062c2af3f META.yml
+SHA1 50ffd76dcc6b1980a357c9aa71510d5d443a3705 Makefile.PL
+SHA1 a14ff53ea8861263be12f9d029894a60bd3deaf5 README
+SHA1 e2290af4e477458cc46f22d697ea0541f7713ac9 examples/ascii.pl
+SHA1 db25834dc299129f6b886ae07f7216326f96bb59 lib/Graph/Simple.pm
+SHA1 ae934cfddf6399fe35a9a57692be87df93d91124 lib/Graph/Simple/Edge.pm
+SHA1 ced6f187147f4c42d766964818c48cd76d1b8cfd lib/Graph/Simple/Node.pm
+SHA1 076a3e34b0796300e901b42308c4ed2dad26b2d4 lib/Graph/Simple/Parser.pm
+SHA1 4aa1567460498a1b650e7fcf60d6c60d5b311452 t/ascii.t
+SHA1 a00b6c8bc0e385e95b3e460ab0ef140063df3766 t/graph.t
+SHA1 c021a75121940f3b6e286f0abdfb595a289d288a t/in/1node.txt
+SHA1 fa3af9b662be42bdc260186c8d5b6435d5c2b49d t/in/2nodes.txt
+SHA1 697278cecf48d604304ddc57e335ef207df73588 t/in/3nodes.txt
+SHA1 dd14b57b5635536f17db98e5862d7bcd7dde8bae t/node.t
+SHA1 7cb4eec69e9dc9bcd445dad6abbd635a8843cc17 t/out/1node.txt
+SHA1 6f46afd7e8b16b795e1fb5671c81be99b21eab10 t/out/2nodes.txt
+SHA1 082e6a2d12b2ad15fffb49917b05dc9b1bbf7ec1 t/out/3nodes.txt
+SHA1 11deb46747584d2fa3dd51e3742ac9d9ac3066cb t/parser.t
+SHA1 9bf7111f9cfc96d7227ee36ad89aa3342aba720b t/simple.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iQEVAwUBQdL6fncLPEOTuEwVAQF5oAf+Mf30MPhw67BeRV9W3+aHqORC/mxxaD37
+QS8eiLjIM1EUBCsMu0J2mDTiCtuunNWkXIisSNiwJg30UVntTRn48P2Ogjv9/l7Y
+fG9Jt7EYsfkDLRRk5wdXPlUVwXi5PJZNEPCv2OD4iATqci+fPYHREX3QvtIkSJ8K
+WbLXq56pKiu5aUWSX5zFo1AOIS+XEWmD1nIMntJAnnQAgdCPdjS2KniuF7YxMzY2
+uEEYJ2CFL3MWIJnFAANaBVggDfJXgwO9E/Afq31sLM9Kocn1La813EKKlUiQSbkC
+jeOIRvvU7W8rIbXLJ5bPlt7rDjYy2gTgO/BC1JC027LNF/+frHHWuQ==
+=lD36
+-----END PGP SIGNATURE-----

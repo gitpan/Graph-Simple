@@ -1,0 +1,29 @@
+Revision history for Graph::Layout::Simple.
+
+2004-12-27 v0.01 Tels 18 tests
+  * original version; created by h2xs 1.23 with options
+    -A -X -n Graph::Layout::Simple -b 5.6.1 --skip-autoloader
+
+2004-12-28 v0.02 Tels 20 tests
+  * added a stack-based, backtracking layout routine, that stuffs nodes and
+    paths between them into cells
+  * Simple.pm: as_ascii: deal with cell-layout and convert this to ASCII
+  * Simple.pm: add doc stub for METHODS
+  * Simple.pm: add score(), as_XXX() do layout if it hasn't done before
+  * Node.pm: revised code, and better parameter handling
+  * no longer needs Graph::Directed or Graph::Layout::Aesthetic as prereq
+  * added examples/ascii.pl
+  * forgot to add graph.t to MANIFEST
+
+Renamed to Graph::Simple:
+
+2004-12-29 v0.03 Tels 52 tests
+  * is a subclass of Graph::Directed, so add it as prereq again :°)
+  * Graph::Layout::Simple::Parser - parse graph from text
+  * Graph::Layout::Simple::Edge - an edge between two nodes
+  * Graph: added node() -  find node by name
+  * Graph: add quite some more documentation
+  * Graph, Node: added as_txt()
+  * Node: added incoming(), and track incoming edges from other nodes
+  * added t/parser.t - test text parser
+  * added t/ascii.t - parse various text files to ascii

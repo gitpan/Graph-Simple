@@ -1,0 +1,23 @@
+CHANGES
+Makefile.PL
+MANIFEST
+LICENSE
+README
+SIGNATURE
+examples/ascii.pl
+t/ascii.t
+t/graph.t
+t/node.t
+t/simple.t
+t/parser.t
+t/in/1node.txt
+t/in/2nodes.txt
+t/in/3nodes.txt
+t/out/1node.txt
+t/out/2nodes.txt
+t/out/3nodes.txt
+lib/Graph/Simple.pm
+lib/Graph/Simple/Parser.pm
+lib/Graph/Simple/Node.pm
+lib/Graph/Simple/Edge.pm
+META.yml                                 Module meta-data (added by MakeMaker)

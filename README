@@ -1,0 +1,29 @@
+Graph-Simple
+============
+
+Installation
+------------
+
+To install this module type the following:
+
+	perl Makefile.PL
+	make
+	make test
+	sudo make install
+
+Dependencies
+------------
+
+This module requires these other modules and libraries:
+
+	Perl v5.6.1 or newer
+	Graph 0.2 or newer
+
+AUTHOR
+======
+
+Copyright (C) 2004 by Tels
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms of the GPL.
+

@@ -104,3 +104,19 @@ Renamed to Graph::Simple:
   * Node: postpone calculation of 'w' (called by as_ascii() from Graph)
   * add a stress test with a bend edge
 
+2005-01-12 v0.09 Tels 147 tests -- Place, place, place, place those pesky nodes...
+  * Layout: try to place node with only one predecessor around the predecessor
+  * add a stress test with a star-shaped graph (5 nodes)
+  * add a syntax test with newlines and one without any spaces
+  * Parser: accumulate left-over fragments to parse examples broken by newlines
+  * Parser: use compiled regexps for nodes, attributes etc
+  * Parser: finally handle trailing attributes on nodes
+  * Node: add set_attributes() for setting multiple ones at once
+  * Node: setting attribute "class" will set subclass instead
+  * add tests for parsing:
+    [ node ] { attribute: value; }
+    [ node ] { attribute: value; } -> [ node2] { attribute: value }
+  * fix edges going to the left
+  * tests for quoting in Node names
+
+

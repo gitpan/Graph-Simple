@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 27;
+   plan tests => 37;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Node") or die($@);
@@ -27,6 +27,7 @@ can_ok ("Graph::Simple::Node", qw/
   id
   class
   set_attribute
+  set_attributes
   attribute
   /);
 
@@ -76,29 +77,60 @@ is ($node->as_txt(), '[ Node \#0 ]', 'as_txt');
 is ($node->as_html(), "<td class='node'> Node #0 </td>\n",
  'as_html');
 
+# quoting of ()
+$node->{name} = 'Frankfurt (Oder)';
+
+is ($node->as_txt(), '[ Frankfurt \(Oder\) ]', 'as_txt');
+is ($node->as_html(), "<td class='node'> Frankfurt (Oder) </td>\n",
+ 'as_html');
+
+# quoting of []
+$node->{name} = 'Frankfurt [ { #1 } ]';
+
+is ($node->as_txt(), '[ Frankfurt \[ \{ \#1 \} \] ]', 'as_txt');
+is ($node->as_html(), "<td class='node'> Frankfurt [ { #1 } ] </td>\n",
+ 'as_html');
+
+# reset name
+$node->{name} = 'Node #0';
+
 #############################################################################
 # as_txt/as_html w/ subclass and attributes
 
 $node->{class} = 'node.cities';
 
 is ($node->as_txt(), '[ Node \#0 ] { class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node.cities'> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-cities'> Node #0 </td>\n",
  'as_html');
 
 $node->set_attribute ( 'color', 'blue' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node.cities' style=\"color: blue\"> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-cities' style=\"color: blue\"> Node #0 </td>\n",
  'as_html');
 
 $node->set_attribute ( 'padding', '1em' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; padding: 1em; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node.cities' style=\"color: blue; padding: 1em\"> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-cities' style=\"color: blue; padding: 1em\"> Node #0 </td>\n",
  'as_html');
 
+$node->set_attributes ( { padding => '2em', color => 'purple' } );
+is ($node->as_txt(), '[ Node \#0 ] { color: purple; padding: 2em; class: cities; }', 'as_txt');
+is ($node->as_html(), "<td class='node-cities' style=\"color: purple; padding: 2em\"> Node #0 </td>\n",
+ 'as_html');
 
+#############################################################################
+# set_attribute(class => foo)
 
+$node->set_attributes ( { class => 'foo', color => 'octarine' } );
 
+is ($node->as_txt(), '[ Node \#0 ] { color: octarine; padding: 2em; class: foo; }', 'as_txt');
+is ($node->as_html(), "<td class='node-foo' style=\"color: octarine; padding: 2em\"> Node #0 </td>\n",
+ 'as_html');
 
+$node->set_attribute ( 'class', 'bar' );
 
+is ($node->as_txt(), '[ Node \#0 ] { color: octarine; padding: 2em; class: bar; }', 'as_txt');
+is ($node->as_html(), "<td class='node-bar' style=\"color: octarine; padding: 2em\"> Node #0 </td>\n",
+ 'as_html');
 
 

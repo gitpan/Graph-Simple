@@ -61,7 +61,7 @@ sub from_file
   my ($self,$file) = @_;
 
   open PARSER_FILE, $file or die (ref($self).": Cannot read $file: $!");
-  local $\ = "\n";			# slurp mode
+  local $/ = undef;			# slurp mode
   my $doc = <PARSER_FILE>;		# read entire file
   close PARSER_FILE;
 
@@ -83,15 +83,24 @@ sub from_text
   my $c = 'Graph::Simple::Node';
   my $e = 'Graph::Simple::Edge';
   my $nr = -1;
+
+  # rgeexp for the different parts
+  my $qr_node = _match_node();
+  my $qr_attr = _match_attributes();
+  my $qr_oatr = _match_optional_attributes();
+
+  my $backbuffer = '';	# left over fragments to be combined with next line
   LINE:
-  foreach my $line (@lines)
+  foreach my $curline (@lines)
     {
     $nr++;
-    chomp($line);
-
-    next if $line =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
-    next if $line =~ /^\s*\z/;	# empty line?
+    next if $curline =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
+    next if $curline =~ /^\s*\z/;	# empty line?
     
+    chomp($curline);
+
+    my $line = $backbuffer . $curline;
+
     # remove comment (but leave \# intact):
     $line =~ s/[^\\]#.*//;
 
@@ -102,7 +111,7 @@ sub from_text
     # node { color: red; } or 
     # node.graph { color: red; }
 
-    if ($line =~ /^(node|graph|edge|group)(\.\w+)?\s*\{([^\}]+)\}\s*\z/)
+    if ($line =~ /^(node|graph|edge|group)(\.\w+)?$qr_attr\z/)
       {
       my $type = $1 || '';
       my $class = $2 || '';
@@ -112,13 +121,13 @@ sub from_text
 
       $graph->set_attributes ( "$type$class", $att);
 
-      next LINE;
       }
-    
     # [ Berlin ]
-    if ($line =~ /^\[\s*([^\]]+?)\s*\]\z/)
+    elsif ($line =~ /^$qr_node\z/)
       {
       my $n1 = $1;
+      # strip trailing spaces
+      $n1 =~ s/\s*\z//;
       # unquote special chars
       $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
@@ -128,15 +137,37 @@ sub from_text
         $node_a = $c->new( { name => $n1 } ); 
         $graph->add_node ( $node_a );
         }
-      next LINE;
       }
-
-    # [ Berlin ] -> [ Kassel ]
-    #                      1              2    3     4                 6
-    if ($line =~ /^\[\s*([^\]]+?)\s*\]\s*(<?)((=|-|- |\.)+)(>?)\s*\[\s*([^\]]+?)\s*\]/)
+    # [ Berlin ] { color: red; }
+    elsif ($line =~ /^$qr_node$qr_attr\z/)
       {
-      my $n1 = $1; my $n6 = $6; my $n3 = $3;
+      my $n1 = $1;
+      my $a1 = $self->_parse_attributes($2||'');
+      # strip trailing spaces
+      $n1 =~ s/\s*\z//;
+      # unquote special chars
+      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
+      my $node_a = $graph->node($n1);
+      if (!defined $node_a)
+        {
+        $node_a = $c->new( { name => $n1 } ); 
+        $graph->add_node ( $node_a );
+        }
+
+      $node_a->set_attributes($a1);
+      }
+    # [ Berlin ] -> [ Kassel ]
+    elsif ($line =~ /^$qr_node$qr_oatr\s*(<?)((=|-|- |\.)+)(>?)$qr_node$qr_oatr\z/)
+      {
+      my $n1 = $1; my $n3 = $4; my $n6 = $7; my $a1 = $2 || ''; my $a2 = $8 || '';
+      my $att1 = $self->_parse_attributes($a1);
+      my $att2 = $self->_parse_attributes($a2);
+
+      # strip trailing spaces
+      $n1 =~ s/\s*\z//;
+      $n6 =~ s/\s*\z//;
+     
       # unquote special chars
       $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
       $n6 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
@@ -147,6 +178,9 @@ sub from_text
       $node_a = $c->new( { name => $n1 } ) unless defined $node_a;
       $node_b = $c->new( { name => $n6 } ) unless defined $node_b;
 
+      $node_a->set_attributes ($att1);
+      $node_b->set_attributes ($att2);
+
       my $style = '--';	# default
       $style = '==' if $n3 =~ /^=+\z/; 
       $style = '..' if $n3 =~ /^\.+\z/; 
@@ -154,13 +188,46 @@ sub from_text
       # XXX TODO: look at $n2 and $n4 for left/right direction
       my $edge = $e->new( { style => $style . '>' } );
       $graph->add_edge ( $node_a, $node_b, $edge );
+      }
+    else
+      {
+      # couldn't handle that fragement, so accumulate it
+      $backbuffer .= $curline;
       next LINE;
       }
 
-    $self->error("'$line' not recognized by parser.") and return undef;
+    # for all handled cases
+    $backbuffer = '';
+    }
+
+   if ($backbuffer ne '')
+    { 
+    $self->error("'$backbuffer' not recognized by parser.");
+    return undef;
     }
 
   $graph;
+  }
+
+sub _match_attributes
+  {
+  # return a regexp that matches something like " { color: red; }" and returns
+  # the inner text without the {}
+  qr/\s*\{\s*([^\}]+?)\s*\}/;
+  }
+
+sub _match_optional_attributes
+  {
+  # return a regexp that matches something like " { color: red; }" and returns
+  # the inner text without the {}
+  qr/(\s*\{\s*[^\}]+?\s*\})?/;
+  }
+
+sub _match_node
+  {
+  # return a regexp that matches something like " [ bonn ]" and returns
+  # the inner text without the [] (might leave some spaces)
+  qr/\s*\[\s*([^\]]+?[^\\])\]/;
   }
 
 sub _parse_attributes
@@ -170,6 +237,9 @@ sub _parse_attributes
   my ($self,$text) = @_;
 
   my $att = {};
+
+  $text =~ s/^\s*\{//;		# remove left-over {
+  $text =~ s/\}\s*\z//;		# remove left-over }
 
   my @atts = split /\s*;\s*/, $text;
 

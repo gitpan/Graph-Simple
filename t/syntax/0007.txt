@@ -1,4 +1,4 @@
  node.city { color: brown; } # override default color
 
  [ Bonn ] { class: city; } -> [ Berlin ] { class: city; }
- [ Kassel ] { class: city; } -> [ Berlin ]
+ [ Berlin ] -> [ Kassel ]

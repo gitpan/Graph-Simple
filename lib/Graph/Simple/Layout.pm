@@ -100,46 +100,14 @@ sub layout
       # if target node not yet placed
       if (!defined $dst->{x})
         {
-        print STDERR "# Step $step: Try to place node to the right\n" if $self->{debug};
+        print STDERR "# Step $step: $dst->{name} not yet placed\n"
+         if $self->{debug};
 
-        # try to place node to the right
-        my $x = $src->{x} + 2;
-        my $y = $src->{y};
-
-        if (!exists $cells->{"$x,$y"})
-          {
-          print STDERR "# Step $step: Placing $dst->{name} at $x,$y\n" if $self->{debug};
-          $cells->{"$x,$y"} = $dst;
-          $dst->{x} = $x;
-          $dst->{y} = $y;
-          }
-        else
-          {
-          # try to place node down
-          my $x = $src->{x};
-          my $y = $src->{y} + 2;
-
-          if (!exists $cells->{"$x,$y"})
-            {
-            print STDERR "# Step $step: Placing $dst->{name} at $x,$y\n" if $self->{debug};
-            $cells->{"$x,$y"} = $dst;
-            $dst->{x} = $x;
-            $dst->{y} = $y;
-            }
-          }
-
-        if (!defined $dst->{x})
-          {
-          # simple placement didn't work, so try generic solition
-          print STDERR "# Step $step: Couldn't place $dst->{name} at $x,$y; retrying generic\n"
-           if $self->{debug};
-
-          # put current action back
-          unshift @todo, $action;
-          # insert action to place target beforehand
-          unshift @todo, $dst;
-          next TRY;
-          }
+        # put current action back
+        unshift @todo, $action;
+        # insert action to place target beforehand
+        unshift @todo, $dst;
+        next TRY;
         }
 
       # find path (mod is score modifier, or undef if no path exists)
@@ -219,22 +187,35 @@ sub _place_node
     return 0;
     }
         
-  # try to place node to the right of predecessor
+  # try to place node near the predecessor
   my @pre = $node->predecessors();
   if (@pre == 1)
     {
-    my $x = $pre[0]->{x} + 2;
-    my $y = $pre[0]->{y};
+    my @tries = ( 
+	$pre[0]->{x} + 2, $pre[0]->{y},		# right
+	$pre[0]->{x}, $pre[0]->{y} + 2,		# down
+	$pre[0]->{x} - 2, $pre[0]->{y},		# left
+	$pre[0]->{x}, $pre[0]->{y} - 2,		# up
+      );
 
-    if (!exists $cells->{"$x,$y"})
+    print STDERR "# Trying simple placement of $node->{name}\n" if $self->{debug};
+    while (@tries > 0)
       {
-      print STDERR "# Placing $node->{name} at $x,$y\n" if $self->{debug};
-      $cells->{"$x,$y"} = $node;
-      $node->{x} = $x;
-      $node->{y} = $y;
-      return 0;
+      my $x = shift @tries;
+      my $y = shift @tries;
+
+      if (!exists $cells->{"$x,$y"})
+        {
+        print STDERR "# Placing $node->{name} at $x,$y\n" if $self->{debug};
+        $cells->{"$x,$y"} = $node;
+        $node->{x} = $x;
+        $node->{y} = $y;
+        return 0;
+        }
       }
-    }
+
+    # all simple possibilities exhausted
+    } 
 
   # if no predecessors/incoming edges, try to place in column 0
   if (@pre == 0)
@@ -497,9 +478,10 @@ sub _gen_edge_left
  
   my $s = $self->edge($src,$dst);
 
-  $s = s/>//;
+  my $st = $s->{style} || '--';
+  $st =~ s/>//;
   Graph::Simple::Node->new(
-    name => "\n <$s", class => 'edge', w => 5, w => 3,
+    name => "\n <$st", class => 'edge', w => 5, w => 3,
     );
   }
 

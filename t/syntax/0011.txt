@@ -3,5 +3,8 @@
  ] -> 
  [ 
    Berlin
-   (Capital)
+   \(Capital\)
+ ]
+ [
+ Bonn 
  ] -> [ Wismar ]

@@ -1,0 +1,28 @@
+#!/usr/bin/perl -w
+
+BEGIN { $|++; }
+
+use strict;
+use lib 'lib';
+use Graph::Simple::Parser;
+
+print "# Graph::Simple v$Graph::Simple::VERSION\n";
+
+my $parser = Graph::Simple::Parser->new( debug => 0 );
+
+my $file = shift;
+
+my $graph = $parser->from_file( $file );
+
+print "$file\n";
+
+die ($parser->error()) unless defined $graph;
+
+$graph->layout();
+
+warn ($graph->error()) if $graph->error();
+
+print $graph->as_txt();
+
+print $graph->css(), "\n", $graph->as_html();
+

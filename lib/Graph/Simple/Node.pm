@@ -175,8 +175,11 @@ sub as_txt
     next if !defined $a->{$atr};
 
     # attribute defined, but same as default
-    my $DEF = $self->{graph}->attribute ($class, $atr);
-    next if defined $DEF && $a->{$atr} eq $DEF;
+    if (defined $self->{graph})
+      {
+      my $DEF = $self->{graph}->attribute ($class, $atr);
+      next if defined $DEF && $a->{$atr} eq $DEF;
+      }
 
     $att .= "$atr: $a->{$atr}; ";
     }
@@ -200,7 +203,8 @@ sub as_html
   # return yourself as HTML
 
   my $class = $self->class();
-  my $html = "<$tag class='$class$id'";
+  my $c = $class; $c =~ s/\./-/g;	# node.city => node-city
+  my $html = "<$tag class='$c$id'";
   
   my $style = '';
   my $a = $self->{att};
@@ -331,6 +335,17 @@ sub class
   $self->{class} || 'node';
   }
 
+sub sub_class
+  {
+  my $self = shift;
+
+  if (defined $_[0])
+    {
+    $self->{class} =~ s/\..*//;		# nix subclass
+    $self->{class} .= '.' . $_[0];	# append new one
+    }
+  }
+
 sub attribute
   {
   my ($self, $atr) = @_;
@@ -348,8 +363,25 @@ sub attribute
 sub set_attribute
   {
   my ($self, $atr, $val) = @_;
-  
+ 
+  if ($atr eq 'class')
+    {
+    $self->sub_class($val);
+    return $self;
+    }
   $self->{att}->{$atr} = $val;
+  $self;
+  }
+
+sub set_attributes
+  {
+  my ($self, $atr) = @_;
+  
+  foreach my $n (keys %$atr)
+    {
+    $n eq 'class' ? $self->sub_class($atr->{$n}) : $self->{att}->{$n} = $atr->{$n};
+    }
+  $self;
   }
 
 1;
@@ -454,6 +486,13 @@ of the specific class the node is in, then this will be returned.
 
 Sets the specified attribute of this (and only this!) node to the
 specified value.
+
+=head2 set_attributes()
+
+	$node->set_attributes( $hash );
+
+Sets all attributes specified in C<$hash> as key => value pairs in this
+(and only this!) node.
 
 =head2 name()
 

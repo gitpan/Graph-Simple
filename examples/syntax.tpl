@@ -20,7 +20,7 @@
 
  <td valign="top">
   <div class="menu">
-  <p class="menu"><a class="menu" href="index.html" title="Back to the main page">Main &nbsp;&nbsp;&nbsp;&nbsp;&nbsp&nbsp;&nbsp;&nbsp;&nbsp;</a></p>
+  <p class="menu"><a class="menu" href="index.html" title="Back to the main page">Main</a></p>
   </div>
  </td>
  <td>

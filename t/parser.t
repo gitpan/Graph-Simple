@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 14;
+   plan tests => 18;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Parser") or die($@);
@@ -41,7 +41,7 @@ foreach (<DATA>)
 
   if (!defined $graph)
     {
-    print '# Error: ' . $parser->error();
+    fail($parser->error());
     next;
     }
  
@@ -66,4 +66,7 @@ __DATA__
 [ Bonn ] ..> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn \( \#1 \) ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn ( #1 ),Frankfurt
-
+[ Bonn ] { color: red; }\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[Bonn]{color:red;}\n[Berlin]->[Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] { color: red; } -> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] { color: red; } -> [ Berlin ] {color: blue} \n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt

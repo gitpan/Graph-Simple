@@ -17,7 +17,7 @@ use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm/Edge.pm!
@@ -244,7 +244,8 @@ sub css
 
     next if keys %{$a->{$class}} == 0;			# skip empty ones
 
-    $css .= ".$class$id {\n";
+    my $c = $class; $c =~ s/\./-/g;			# node.city => node-city
+    $css .= ".$c$id {\n";
     foreach my $att (sort keys %{$a->{$class}})
       {
       my $val = $a->{$class}->{$att};
@@ -368,9 +369,10 @@ sub as_txt
   # generate the atributes first
 
   my $txt = '';
-  for my $class (qw/graph node edge group/)
+  my $att =  $self->{att};
+  for my $class (sort keys %$att)
     {
-    my $a = $self->{att}->{$class};
+    my $a = $att->{$class};
     my $att = '';
     for my $atr (keys %$a)
       {
@@ -971,11 +973,9 @@ are limitations in the parser, which cannot yet handle the following features:
 
 =over 2
 
-=item multiline definitions
+=item nesting (graph-in-a-node)
 
 =item node groups
-
-=item node attributes following the node
 
 =item node lists
 
@@ -992,7 +992,7 @@ the kind of graphs you can do quite seriously.
 
 =item No bends
 
-All nodes must be in straigh line of sight (up, down, left or right) of each
+All nodes must be in straight line of sight (up, down, left or right) of each
 other - a bend cannot yet be generated. So the following graph output is not
 possible:
 
@@ -1007,12 +1007,7 @@ possible:
 	             +---------+
 
 Since the C<long edges> feature is already implemented, this should be easy
-to add. We need four new types of edges, though:
-
-	EDGE_DOWN_RIGHT
-	EDGE_DOWN_LEFT
-	EDGE_RIGHT_DOWN
-	EDGE_UP_RIGHT
+to add. 
 
 =item No joints
 
@@ -1037,9 +1032,9 @@ not enough time for that yet.
 
 =head2 Distances
 
-Nodes are always placed 2 cells away from each other. If this fails,
-the node will be placed a random distance away, and this will cause
-the path tracing code to not find an edge between the two nodes.
+Nodes are always placed 2 cells away from each other. If this fails, the node
+will be placed a random distance away, and this will usually cause the path
+tracing code to not find an edge between the two nodes.
 
 =head2 Placement
 
@@ -1056,6 +1051,11 @@ Grouping of nodes is not yet implemented.
 
 Theoretically, a node could contain an entire second graph. Practially,
 this is not yet implemented.
+
+=head2 Layouter
+
+The layouter is quite simple, and buggy. Once the syntax and feature set
+is complete, it will be rewritten.
 
 =head1 LICENSE
 

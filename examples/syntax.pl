@@ -19,7 +19,7 @@ use strict;
 use warnings;
 use Graph::Simple::Parser;
 
-my $parser = Graph::Simple::Parser->new();
+my $parser = Graph::Simple::Parser->new( debug => 0);
 
 my @toc = ();
 
@@ -85,10 +85,9 @@ sub _for_all_files
 
     $graph->layout() if defined $graph;
 
-    if (!defined $graph || $graph->error() ne '')
+    if (!defined $graph)
       {
       my $error = $parser->error();
-      $error = $graph->error() if defined $graph && $graph->error();
       $output .=
         "<h2>$dir/$file</h2>" .
 	"<a class='top' href='#top' title='Go to the top'>Top -^</a>\n".
@@ -114,9 +113,10 @@ sub out
   
   my $t = $graph->nodes() . ' Nodes, ' . $graph->edges . ' Edges';
   my $n = $t; $n =~ s/\s/_/;
-  
+ 
   push @toc, $t;
 
+  my $out = 
   "<style type='text/css'>\n" .
   "<!--\n" .
   $graph->css() . 
@@ -129,7 +129,12 @@ sub out
  
    "<div style='float: left;'>\n" . 
    "<h3>Input</h3>\n" . 
-   "<pre>$txt</pre></div>" . 
+   "<pre>$txt</pre></div>"; 
+  
+  $out .= "<span style='color: red; font-weight: bold;'>Error:</span>" .
+    $graph->error() if $graph->error();
+
+  $out .=
 
    "<div style='float: left;'>\n" . 
    "<h3>As Text</h3>\n" . 
@@ -140,5 +145,7 @@ sub out
    $graph->$method() . "</div>\n" .
 
    "<div class='clear'>&nbsp;</div></div>\n\n";
+
+  $out;
   }
 

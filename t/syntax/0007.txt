@@ -1,3 +1,4 @@
+# nodes in a subclass with attributes
  node.city { color: brown; } # override default color
 
  [ Bonn ] { class: city; } -> [ Berlin ] { class: city; }

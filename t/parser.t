@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 18;
+   plan tests => 30;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Parser") or die($@);
@@ -30,7 +30,8 @@ my $line = 0;
 foreach (<DATA>)
   {
   chomp;
-  next if $_ =~ /^\s*\z/;
+  next if $_ =~ /^\s*\z/;			# skip empty lines
+  next if $_ =~ /^#/;				# skip comments
 
   my ($in,$result) = split /\|/, $_;
 
@@ -47,11 +48,21 @@ foreach (<DATA>)
  
   my $got = scalar $graph->nodes();
 
-  for my $n ( $graph->nodes() )
-    {
-    $got .= "," . $n->name();
-    } 
+  my @edges = $graph->edges();
 
+  my $es = 0;
+  foreach my $e (@edges)
+    {
+    $es ++ if $e->name() ne '';
+    }
+
+  $got .= '+' . $es if $es > 0;
+
+  for my $n ( sort { $a->{name} cmp $b->{name} } ($graph->nodes(), $graph->edges()) )
+    {
+    $got .= "," . $n->name() unless $n->name() eq '';
+    } 
+  
   is ($got, $result, $in);
   }
 
@@ -70,3 +81,17 @@ __DATA__
 [Bonn]{color:red;}\n[Berlin]->[Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] { color: red; } -> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 [ Bonn ] { color: red; } -> [ Berlin ] {color: blue} \n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] { color: #fff; } -> [ Berlin ] { color: #A0a0A0 } # failed in v0.09 [ Bonn ] -> [ Ulm ]|2,Berlin,Bonn
+[ Bonn ] { color: #fff; } -> [ Berlin ] { color: #A0a0A0 } #80808080 failed in v0.09 [ Bonn ] -> [ Ulm ]|2,Berlin,Bonn
+[ Bonn ] { color: #fff; } -> [ Berlin ] { color: #A0a0A0 } #808080 failed in v0.09 [ Bonn ] -> [ Ulm ]|2,Berlin,Bonn
+# node chains
+[ Bonn ] -> [ Berlin ]\n -> [ Kassel ]|3,Berlin,Bonn,Kassel
+[ Bonn ] { color: #fff; } -> [ Berlin ] { color: #A0a0A0 }\n -> [ Kassel ] { color: red; }|3,Berlin,Bonn,Kassel
+[ Bonn ] -> [ Berlin ] -> [ Kassel ]|3,Berlin,Bonn,Kassel
+[ Bonn ] { color: #fff; } -> [ Berlin ] { color: #A0a0A0 } -> [ Kassel ] { color: red; }|3,Berlin,Bonn,Kassel
+[ Bonn ] -> [ Berlin ]\n -> [ Kassel ] -> [ Koblenz ]|4,Berlin,Bonn,Kassel,Koblenz
+[ Bonn ] -> [ Berlin ] -> [ Kassel ]\n -> [ Koblenz ]|4,Berlin,Bonn,Kassel,Koblenz
+[ Bonn ] -> [ Berlin ] -> [ Kassel ] -> [ Koblenz ]|4,Berlin,Bonn,Kassel,Koblenz
+# edges with names
+[ Bonn ] - Auto--> [ Berlin ]|2+1,Auto,Berlin,Bonn
+[ Bonn ] - Auto --> [ Berlin ]|2+1,Auto,Berlin,Bonn

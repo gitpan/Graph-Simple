@@ -5,7 +5,7 @@
 # and outputs the result as an HTML page.
 # Use it like:
 
-# ewxamples/syntax.pl >test.html
+# examples/syntax.pl >test.html
 
 # and then open test.html in your favourite browser.
 
@@ -36,16 +36,15 @@ gen_graphs($parser);
 my $toc = '<ul>';
 for my $t (@toc)
   {
-  my $n = $t; $n =~ s/\s/_/;
-  $toc .= " <li><a href=\"#$n\">" . $t . "</a>\n";
+  $toc .= " <li><a href='#$t->[0]'>$t->[1]</a>\n";
   }
 $toc .= "</ul>\n";
 
 # insert the TOC
 $html =~ s/##TOC##/ $toc /;
 $html =~ s/##HTML##/ $output /;
-$html =~ s/##time##/ scalar localtime() /e;
-$html =~ s/##version##/$Graph::Simple::VERSION/e;
+$html =~ s/##time##/ scalar localtime() /eg;
+$html =~ s/##version##/$Graph::Simple::VERSION/eg;
 
 print $html;
 
@@ -98,13 +97,13 @@ sub _for_all_files
 	"</div>\n";
       next;
       }
-    $output .= out ($input, $graph, 'html');
+    $output .= out ($input, $graph, 'html', $dir, $file);
     }
   }
 
 sub out
   {
-  my ($txt,$graph,$method) = @_;
+  my ($txt,$graph,$method,$dir, $file) = @_;
 
   $method = 'as_' . $method;
 
@@ -112,9 +111,16 @@ sub out
   $graph->id($ID++);
   
   my $t = $graph->nodes() . ' Nodes, ' . $graph->edges . ' Edges';
-  my $n = $t; $n =~ s/\s/_/;
+  my $n = $dir."_$file";
  
-  push @toc, $t;
+  $dir = ucfirst($dir);
+
+  # get comment
+  $txt =~ /^\s*#\s*(.*)/;
+  my $comment = ucfirst($1 || '');
+
+  my $name = $comment || $t;
+  push @toc, [ $n, $name ];
 
   my $out = 
   "<style type='text/css'>\n" .
@@ -123,7 +129,7 @@ sub out
   "-->\n" .
   "</style>\n" .
 
-  "<a name=\"$n\"></a><h2>$t</h2>\n" .
+  "<a name=\"$n\"></a><h2>$dir: $name</h2>\n" .
   "<a class='top' href='#top' title='Go to the top'>Top -^</a>\n".
    "<div class='text'>\n" .
  

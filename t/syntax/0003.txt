@@ -1,5 +1,9 @@
+# Different edge styles
  [ Bonn ] <-> [ Berlin ] 	# bidirectional
  [ Berlin ] ==> [ Rostock ]	# double
  [ Hamburg ] ..> [ Altona ]	# dotted
  [ Dresden ] - > [ Bautzen ]	# dashed
- [ Magdeburg ] <=> [ Ulm ]	# bidrectional, double etc
+ [ Schweinfurt ] <=> [ Ulm ]	# bidrectional, double
+ [ Magdeburg ] <= [ Burg ]	# double, from Burg to Magdeburg
+ [ Burg ] -- [ Wolfen ]		# single, bidirectional w/o arrows
+ [ Wolfen ] .. [ Coswig ]	# dotted, bidirectional w/o arrows

@@ -6,11 +6,11 @@ To install this module type the following:
 
 Untar the package:
 
-	tar -xzf Graph-Simple-0.05.tar.gz
+	tar -xzf Graph-Simple-0.10.tar.gz
 
 Change into the directory:
 
-	chdir Graph-Simple-0.05/
+	chdir Graph-Simple-0.10/
 
 Verify the package:
 
@@ -35,7 +35,8 @@ Dependencies
 This module requires these other modules and libraries:
 
         Perl v5.6.1 or newer
-        Graph 0.50 or newer
+        Graph 0.55 or newer
+
 AUTHOR
 ======
 

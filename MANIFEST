@@ -13,6 +13,7 @@ examples/syntax.pl		syntax tests
 examples/syntax.tpl		HTML template for syntax tests
 examples/history.html		progress of hTML output over the time
 examples/parse			parser for tests
+examples/txt2ascii		parse text description and output it as ASCII art
 t/ascii.t
 t/graph.t
 t/edge.t
@@ -21,6 +22,7 @@ t/layout.t
 t/node.t
 t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
+t/parse_edge.t			test parsing edges
 t/simple.t
 t/syntax/0000.txt		syntax tests for the parser
 t/syntax/0001.txt
@@ -43,10 +45,16 @@ t/syntax/0017.txt
 t/syntax/0018.txt
 t/syntax/0019.txt
 t/syntax/0020.txt
+t/syntax/0021.txt
+t/syntax/0022.txt
+t/syntax/0023.txt
+t/syntax/0024.txt
 t/stress/0001.txt		stress-testing the layouter
 t/stress/0002.txt
 t/stress/0003.txt
 t/stress/0004.txt
+t/stress/0005.txt
+t/stress/0006.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt

@@ -1,3 +1,4 @@
+# override defaults for nodes, edges, groups and graph
  node { color: brown; }
  graph { background: white; }
  group { background: grey; }

@@ -1,14 +1,17 @@
 Graph-Simple
 ============
 
-See Graph::Simple under LIMITATIONS for some hot topics. Also:
+See Graph::Simple under LIMITATIONS for some hot topics.
 
-* _trace_path() for bend edges
+In addition:
+
+* the ASCII outut is broken for t/stress/0004.txt - check and fix
+* _trace_path() for bend edges (with one corner; and if X1 == X2 or
+  Y1 == Y2, bend around two corners (U shaped))
+* _trace_path(): use A* algorithmn as last resort to find path
 * find place for nodes by walking in increasing circles around the source
   node
 * parser: deal with " [ node ], [node2], [node3]"
+* parser: deal with optional attributes after an edge
 * when generating HTML tables, trailing <td></td> pairs could be stripped
-* we need only to output the node attributes in as_txt when we
-  output the node the first time
-* output general class attributes fails for sub-classes like "node.city"
-  (it seems it needs to repeat all settings from "node", too)
+* add our format to Graph::ReadWrite

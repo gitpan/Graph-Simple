@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 12;
+   plan tests => 13;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -19,6 +19,7 @@ can_ok ("Graph::Simple", qw/
   add_edge
   add_node
   set_attributes
+  set_attribute
   attribute
   score
   id
@@ -139,6 +140,41 @@ is ($graph->css(), <<HERE
   text-align: center;
 }
 HERE
-, 'css()');
+, 'css() with id');
+
+
+#############################################################################
+# ID tests with sub-classes
+
+$graph->set_attributes ('node.cities', { color => '#808080' } );
+
+is ($graph->css(), <<HERE
+.edge42 {
+  background: inherit;
+  border: none;
+  font-family: courier-new, courier, monospaced, sans-serif;
+  margin: 0.1em;
+  padding: 0.2em;
+  text-align: center;
+}
+.graph42 {
+  background: red;
+  border: 1px solid black;
+  color: white;
+  margin: 0.5em;
+  padding: 0.7em;
+}
+.node42,.node-cities42 {
+  background: white;
+  border: 1px solid black;
+  margin: 0.1em;
+  padding: 0.2em;
+  text-align: center;
+}
+.node-cities42 {
+  color: #808080;
+}
+HERE
+, 'css() with sub-classes');
 
 

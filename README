@@ -49,6 +49,13 @@ Open test.html afterwards in your favourite browser:
 
 	perl examples/html.pl >test.html
 
+Many more examples and documentation, especially on integrating this into
+a Mediawiki installation, can be found at:
+
+	http://bloodgate.com/perl/graph/
+
+Have fun!
+	
 Installation
 ============
 

@@ -1,0 +1,20 @@
+#!/usr/bin/perl -w
+
+BEGIN { $|++; }
+
+use lib 'lib';
+use Graph::Simple::Parser;
+
+my $Graph::Simple::Parser->new( debug => 0; );
+
+local $\ = undef;
+my $graph = $parser->from_txt( <> );
+
+die ($parser->error()) unless defined $graph;
+
+$graph->layout();
+
+die ($parser->error()) if $graph->error();
+
+print $graph->as_txt();
+

@@ -16,7 +16,7 @@ $VERSION = '0.03';
 #############################################################################
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
-# If you change this, change it also in Simple.pm/Edge.pm!
+# If you change this, change it also in Simple.pm!
 sub OBJ () { 'obj' };
 
 {
@@ -155,16 +155,9 @@ sub error
   $self->{error};
   }
 
-sub as_txt
+sub attributes_as_txt
   {
   my $self = shift;
-
-  my $name = $self->{name};
-
-  # quote name
-  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
-
-  my $txt = '[ ' .  $name . ' ]';
 
   my $att = '';
   my $class = $self->class();
@@ -181,16 +174,44 @@ sub as_txt
       next if defined $DEF && $a->{$atr} eq $DEF;
       }
 
-    $att .= "$atr: $a->{$atr}; ";
+    my $val = $a->{$atr};
+    # encode critical characters
+    $val =~ s/([:;\x00-\x20])/sprintf("%%%02x",ord($1))/eg;
+
+    $att .= "$atr: $val; ";
     }
 
-  # include our class as attribute, if it is a subclass
-  $att .= "class: $1;" if $class =~ /\.(\w+)/;
- 
-  # append attributes to text if nec. 
-  $txt = $txt . ' { ' . $att . ' }' if $att ne '';
+  # include our subclass as attribute
+  $att .= "class: $1; " if $class =~ /\.(\w+)/;
+  
+  # generate attribute text if nec. 
+  $att = ' { ' . $att . '}' if $att ne '';
 
-  $txt;
+  $att;
+  }
+
+sub as_txt_node
+  {
+  my $self = shift;
+  
+  my $name = $self->{name};
+
+  # quote special chars in name
+  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+
+  '[ ' .  $name . ' ]';
+  }
+
+sub as_txt
+  {
+  my $self = shift;
+
+  my $name = $self->{name};
+
+  # quote special chars in name
+  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+
+  '[ ' .  $name . ' ]' . $self->attributes_as_txt();
   }
 
 sub as_html
@@ -212,6 +233,10 @@ sub as_html
     {
     # attribute not defined
     next if !defined $a->{$atr};
+    
+    # skip these:
+    next if $atr =~
+	/^(linkbase|link|autolink|autotitle|title)\z/;
 
     # attribute defined, but same as default (or node not in a graph)
     if (!defined $self->{graph})
@@ -228,6 +253,19 @@ sub as_html
   $style =~ s/;\s$//;				# remove '; ' at end
   $html .= " style=\"$style\"" if $style;
 
+  my $title = $self->attribute('title');
+  my $autotitle = $self->attribute('autotitle');
+  if (!defined $title && defined $autotitle && $autotitle eq 'name')
+    {
+    $title = $self->{name};
+    }
+  $title = '' unless defined $title;
+
+  if ($title ne '')
+    {
+    $title =~ s/"/''/g;				# remove quotation mark
+    $html .= " title=\"$title\"";		# cell with mouse-over title
+    }
   my $name = $self->{name};
 
   $name =~ s/&/&amp;/g;				# quote &
@@ -236,7 +274,32 @@ sub as_html
 
   $name =~ s/\n/<br>/g;				# |\n|\nv => |<br>|<br>v
   $name =~ s/^\s*<br>//;			# remove empty leading line
-  $html .= "> $name </$tag>\n";
+
+  my $link = $self->attribute('link');
+  my $autolink = $self->attribute('autolink');
+  if (!defined $link && defined $autolink && $autolink eq 'name')
+    {
+    $link = $self->{name};
+    }
+  $link = '' unless defined $link;
+
+  # only if link is relative, prepend base
+  if ($link ne '' && $link !~ /^\w+:\/\//)
+    {
+    my $base = $self->attribute('linkbase');
+    $link = $base . $link if defined $base;
+    }
+
+  if ($link ne '')
+    {
+    # decode %XX entities
+    $link =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
+    $html .= "> <a href='$link'>$name</a> </$tag>\n";
+    }
+  else
+    {
+    $html .= "> $name </$tag>\n";
+    }
   $html;
   }
 
@@ -357,13 +420,29 @@ sub attribute
 
   my $class = $self->class();
   
-  $self->{graph}->attribute ($self->{class} || 'node', $atr);
+  my $att = $self->{graph}->attribute ($self->{class} || 'node', $atr);
+
+  # If our parent class (like "node" for "node.city") doesnt have the
+  # attribute, see if we can inherit it from "graph":
+  if (!defined $att)
+    {
+    $att = $self->{graph}->attribute ('graph', $atr);
+    }
+  $att;
   }
 
 sub set_attribute
   {
-  my ($self, $atr, $val) = @_;
- 
+  my ($self, $atr, $v) = @_;
+  
+  my $val = $v;
+  # remove quotation marks
+  $val =~ s/^["']//;
+  $val =~ s/["']\z//;
+
+  # decode %XX entities
+  $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
+
   if ($atr eq 'class')
     {
     $self->sub_class($val);
@@ -379,7 +458,7 @@ sub set_attributes
   
   foreach my $n (keys %$atr)
     {
-    $n eq 'class' ? $self->sub_class($atr->{$n}) : $self->{att}->{$n} = $atr->{$n};
+    $n eq 'class' ? $self->sub_class($atr->{$n}) : $self->set_attribute($n, $atr->{$n});
     }
   $self;
   }

@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 37;
+   plan tests => 51;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Node") or die($@);
@@ -29,6 +29,8 @@ can_ok ("Graph::Simple::Node", qw/
   set_attribute
   set_attributes
   attribute
+  attributes_as_txt
+  as_txt_node
   /);
 
 #############################################################################
@@ -102,24 +104,28 @@ $node->{class} = 'node.cities';
 is ($node->as_txt(), '[ Node \#0 ] { class: cities; }', 'as_txt');
 is ($node->as_html(), "<td class='node-cities'> Node #0 </td>\n",
  'as_html');
+is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
 
 $node->set_attribute ( 'color', 'blue' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; class: cities; }', 'as_txt');
 is ($node->as_html(), "<td class='node-cities' style=\"color: blue\"> Node #0 </td>\n",
  'as_html');
+is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
 
 $node->set_attribute ( 'padding', '1em' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; padding: 1em; class: cities; }', 'as_txt');
 is ($node->as_html(), "<td class='node-cities' style=\"color: blue; padding: 1em\"> Node #0 </td>\n",
  'as_html');
+is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
 
 $node->set_attributes ( { padding => '2em', color => 'purple' } );
 is ($node->as_txt(), '[ Node \#0 ] { color: purple; padding: 2em; class: cities; }', 'as_txt');
 is ($node->as_html(), "<td class='node-cities' style=\"color: purple; padding: 2em\"> Node #0 </td>\n",
  'as_html');
+is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
 
 #############################################################################
-# set_attribute(class => foo)
+# set_attributes(class => foo)
 
 $node->set_attributes ( { class => 'foo', color => 'octarine' } );
 
@@ -133,4 +139,35 @@ is ($node->as_txt(), '[ Node \#0 ] { color: octarine; padding: 2em; class: bar; 
 is ($node->as_html(), "<td class='node-bar' style=\"color: octarine; padding: 2em\"> Node #0 </td>\n",
  'as_html');
 
+#############################################################################
+# set_attribute() with encoded entities (%3a etc) and quotation marks
+
+foreach my $l (
+  'http://bloodgate.com/',
+  '"http://bloodgate.com/"',
+  '"http%3a//bloodgate.com/"',
+  )
+  {
+  $node->set_attribute('link', $l);
+
+  is ($node->as_txt(), 
+    '[ Node \#0 ] { color: octarine; link: http%3a//bloodgate.com/; padding: 2em; class: bar; }', 'as_txt');
+  is ($node->as_html(), 
+    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='http://bloodgate.com/'>Node #0</a> </td>\n",
+    'as_html');
+  }
+
+foreach my $l (
+  'perl/',
+  '"perl/"',
+  )
+  {
+  $node->set_attribute('link', $l);
+
+  is ($node->as_txt(), 
+    '[ Node \#0 ] { color: octarine; link: perl/; padding: 2em; class: bar; }', 'as_txt');
+  is ($node->as_html(), 
+    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='/wiki/perl/'>Node #0</a> </td>\n",
+    'as_html');
+  }
 

@@ -87,7 +87,7 @@ Renamed to Graph::Simple:
   * Layout: simplify _trace_path() by using _trace_straight_path()
   * Layout: can trace straight edges occupying multiple cells
 
-2005-01-10 v0.08 Tels 133 tests -- Fix, fix, fix, fix the stupid bugs...
+2005-01-10 v0.08 Tels 133 tests - Fix, fix, fix, fix the stupid bugs...
   * grapher tries to place nodes without any incoming edges into first column
     (this fixes all the examples which have groups of not-connected nodes)
   * in HTML, use monospaced font for edges (prepare for box-art)
@@ -104,7 +104,7 @@ Renamed to Graph::Simple:
   * Node: postpone calculation of 'w' (called by as_ascii() from Graph)
   * add a stress test with a bend edge
 
-2005-01-12 v0.09 Tels 147 tests -- Place, place, place, place those pesky nodes...
+2005-01-12 v0.09 Tels 147 tests - Place, place, place, place the pesky nodes...
   * Layout: try to place node with only one predecessor around the predecessor
   * add a stress test with a star-shaped graph (5 nodes)
   * add a syntax test with newlines and one without any spaces
@@ -117,6 +117,24 @@ Renamed to Graph::Simple:
     [ node ] { attribute: value; }
     [ node ] { attribute: value; } -> [ node2] { attribute: value }
   * fix edges going to the left
-  * tests for quoting in Node names
+  * tests for quoting in node names
 
+2005-01-24 v0.10 Tels 248 tests - Color, color, color, color the pretty graph...
+  * added more stress/syntax tests
+  * fix parser to not treat colors in attributes as comments (like in
+    "color: #808080")
+  * use a pre-compiled regexp to match edges (cut down code-duplication)
+  * parser now handles successfully node chains like:
+    [ Ulm ] -> [ Lahn ] -> [ Bonn ]
+    -> [ Trier ]
+    [ Stein ] -> [ Wahns ]
+  * Simple.pm: fix edges() in list context to actually work
+  * require Graph v0.55 (to be safe)
+  * Node: add attributes_as_txt(), as_txt_node() to allow $graph->as_txt() to
+    output node attributes only once
+  * Graph: as_txt(): output node attributes only once
+  * Graph: add set_attribute()
+  * examples/syntax.pl: generate headlines from comments in input, include footer
+  * Graph: support attributes: linkbase, autolink, autotitle, link, title
+  * Graph: as_html(): output title attributes, as well as links
 

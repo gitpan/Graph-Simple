@@ -9,18 +9,18 @@ package Graph::Simple;
 use 5.006001;
 use strict;
 use warnings;
-use Graph::Simple::Layout;
 use Graph::Simple::Node;
 use Graph::Simple::Edge;
-use Graph 0.50;
+use Graph::Simple::Layout;
+use Graph 0.55;
 use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
-# If you change this, change it also in Node.pm/Edge.pm!
+# If you change this, change it also in Node.pm!
 sub OBJ () { 'obj' };
 
 #############################################################################
@@ -62,6 +62,7 @@ sub _init
     background => '#e0e0f0',
     margin => '0.5em',
     padding => '0.7em',
+    linkbase => '/wiki/',
    },
   edge => { 
     border => 'none',
@@ -162,7 +163,7 @@ sub edges
   my @edges = ();
   foreach my $k (@E)
     {
-    push @edges, $g->get_edge_attribute( $k, OBJ );
+    push @edges, $g->get_edge_attribute( @$k, OBJ );
     }
   @edges;
   }
@@ -207,6 +208,27 @@ sub attribute
   $a->{$class}->{$att};
   }
 
+sub set_attribute
+  {
+  my ($self, $class, $name, $val) = @_;
+
+  # allowed classes and subclasses (except graph)
+  if ($class !~ /^(node|group|edge|graph\z)/)
+    {
+    return $self->error ("Illegal class '$class' when trying to set attribute '$name' to '$val'");
+    }
+
+  # handle special attribute 'gid' like in "graph { gid: 123; }"
+  if ($class eq 'graph' && $name eq 'gid')
+    {
+    $self->{id} = $val;
+    }
+
+  $self->{att}->{$class}->{$name} = $val;
+
+  return $val;
+  }
+
 sub set_attributes
   {
   my ($self, $class, $att) = @_;
@@ -214,7 +236,13 @@ sub set_attributes
   # allowed classes and subclasses (except graph)
   if ($class !~ /^(node|group|edge|graph\z)/)
     {
-    return $self->error ("Illegal class '$class' when setting attribute $att");
+    return $self->error ("Illegal class '$class' when setting attributes");
+    }
+
+  # handle special attribute 'gid' like in "graph { gid: 123; }"
+  if ($class eq 'graph' && exists $att->{gid})
+    {
+    $self->{id} = $att->{gid};
     }
 
   # create class
@@ -222,7 +250,8 @@ sub set_attributes
 
   foreach my $a (keys %$att)
     {
-    $self->{att}->{$class}->{$a} = $att->{$a};
+    my $val = $att->{$a}; $val =~ s/\\#/#/;		# "\#808080" => "#808080"
+    $self->{att}->{$class}->{$a} = $val;
     } 
   $self;
   }
@@ -239,15 +268,43 @@ sub css
   my $css = '';
   my $id = $self->{id};
 
+  # for each primary class (node/group/edge) we need to find all subclasses,
+  # and list them in the CSS, too. Otherwise "node-city" will not inherit
+  # the attributes from "node", which it must.
+
+  my $class_list = { edge => {}, node => {}, group => {} };
+  foreach my $primary (qw/edge node group/)
+    {
+    my $cl = $class_list->{$primary};			# shortcut
+    foreach my $class (sort keys %$a)
+      {
+      if ($class =~ /^$primary\.(.*)/)
+        {
+        $cl->{$1} = undef;				# remove doubles
+        }
+      }
+    }
+
   foreach my $class (sort keys %$a)
     {
 
     next if keys %{$a->{$class}} == 0;			# skip empty ones
 
     my $c = $class; $c =~ s/\./-/g;			# node.city => node-city
-    $css .= ".$c$id {\n";
+
+    my $classes = '';
+    if ($c !~ /\./)					# one of our primary ones
+      {
+      # generate also class list 			# like: "cities7,node-rivers"
+      $classes = join ("$id,.$c-", sort keys %{ $class_list->{$c} });
+      $classes = ",.$c-$classes$id" if $classes ne '';	# like: ",node-cities7,node-rivers7"
+      }
+    $css .= ".$c$id$classes {\n";
     foreach my $att (sort keys %{$a->{$class}})
       {
+      next if 
+	$att =~ /^(linkbase|autolink|autotitle)\z/;	# skip these
+
       my $val = $a->{$class}->{$att};
       $css .= "  $att: $val;\n";
      
@@ -332,7 +389,7 @@ sub as_html
   my $tag = $self->{html_tag} || 'td';
 
   # now run through all rows, and for each of them through all columns 
-  for my $y (sort { $a <=> $b } keys %$rows)
+  for my $y (sort { ($a||0) <=> ($b||0) } keys %$rows)
     {
 
     $html .= " <tr>\n";
@@ -401,19 +458,27 @@ sub as_txt
 
   my @nodes = $self->sorted_nodes();
 
+  # output nodes with attributes first, sorted by their name
+  foreach my $n (sort { $a->{name} cmp $b->{name} } @nodes)
+    {
+    my $att = $n->attributes_as_txt();
+    $txt .= $n->as_txt_node() . $att . "\n" if $att ne '';
+    }
+
   foreach my $n (@nodes)
     {
     my @out = $n->successors();
-    my $first = $n->as_txt();
+    my $first = $n->as_txt_node();
     if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
       {
+      # single node without any connections
       $txt .= $first . "\n";
       }
+    # for all outgoing connections
     foreach my $other (reverse @out)
       {
-      # XXX TODO: honour style of connection
       my $edge = $self->edge( $n, $other );
-      $txt .= $first . $edge->as_txt() . $other->as_txt() . "\n";
+      $txt .= $first . $edge->as_txt() . $other->as_txt_node() . "\n";
       }
     }
 
@@ -688,14 +753,18 @@ HTML tables with CSS making everything "pretty".
 =head1 EXAMPLES
 
 The following examples are given in the simple text format that is understood
-by L<Graph::Simple::Parser>.
+by L<Graph::Simple::Parser|Graph::Simple::Parser>.
 
 If you see no ASCII/HTML graph output in the following examples, then your
 C<pod2html> or C<pod2txt> converter did not recognize the special graph
 paragraphs.
 
-You can use the converters in C<examples/pod/> in this distribution to
+You can use the converters in C<examples/> in this distribution to
 generate a pretty page with nice graph "drawings" from this document.
+
+You can also see many different examples at:
+
+L<http://bloodgate.com/perl/graph/>
 
 =head2 One node
 
@@ -769,6 +838,10 @@ different possible edge styles.
 
 =end graph
 
+More examples at:
+
+L<http://bloodgate.com/perl/graph/>
+
 =head1 METHODS
 
 C<Graph::Simple> supports the following methods:
@@ -796,12 +869,29 @@ Example:
 
 	my $color = $graph->attribute( 'node', 'color' );
 
+=head2 set_attribute()
+
+	$graph->set_attribute( $class, $name, $val );
+
+Sets a given attribute named C<$name> to the new value C<$val> in the class
+specified in C<$class>.
+
+Example:
+
+	$graph->set_attribute( 'graph', 'gid', '123' );
+
+The class can be one of C<graph>, C<edge>, C<node> or C<group>. The last
+three can also have subclasses like in C<node.subclassname>.
+
 =head2 set_attributes()
 
 	$graph->set_attributes( $class, $att );
 
 Given a class name in C<$class> and a hash of mappings between attribute names
 and values in C<$att>, will set all these attributes.
+
+The class can be one of C<graph>, C<edge>, C<node> or C<group>. The last
+three can also have subclasses like in C<node.subclassname>.
 
 Example:
 
@@ -922,6 +1012,15 @@ also L<nodes()>.
 In scalar context, returns the number of nodes/vertices the graph has.
 In list context returns a list of all the node objects (as reference).
 
+=head2 sorted_nodes()
+
+	my $nodes = $graph->sorted_nodes();
+
+In scalar context, returns the number of nodes/vertices the graph has.
+In list context returns a list of all the node objects (as reference),
+sorted by their internal ID number (e.g. the order they have been
+inserted).
+
 =head2 node()
 
 	my $node = $graph->node('node name');
@@ -993,8 +1092,8 @@ the kind of graphs you can do quite seriously.
 =item No bends
 
 All nodes must be in straight line of sight (up, down, left or right) of each
-other - a bend cannot yet be generated. So the following graph output is not
-possible:
+other - a bend cannot yet be generated. So the following graph outputs are not
+yet possible:
 
 	+------+     +--------+
 	| Bonn | --> | Berlin |
@@ -1005,6 +1104,15 @@ possible:
 	  |          +---------+
 	  +--------> | Potsdam |
 	             +---------+
+
+	+------+     +--------+      +--------+
+	| Bonn | --> | Berlin | -- > | Kassel |
+	+------+     +--------+      +--------+
+	  |				^
+	  |				|
+	  |				|
+	  |				|
+	  +-----------------------------+
 
 Since the C<long edges> feature is already implemented, this should be easy
 to add. 
@@ -1055,7 +1163,7 @@ this is not yet implemented.
 =head2 Layouter
 
 The layouter is quite simple, and buggy. Once the syntax and feature set
-is complete, it will be rewritten.
+are complete, it will be rewritten.
 
 =head1 LICENSE
 

@@ -62,6 +62,14 @@ from the parsed input, as well the automatically generated HTML+CSS code.
 
 ##HTML##
 
+<div class="footer">
+
+<p>
+This page was automatically created at <strong><small>##time##</small></strong> by <code>examples/syntax.pl</code> running
+<a href="http://search.cpan.org/~tels/Graph-Simple/" title="Get it from search.cpan.org">Graph::Simple</a> v##version##.
+Contact <a href="/mail.html">Tels</a> for help.
+</p>
+
 </td></tr></table>
 
 </body></html>

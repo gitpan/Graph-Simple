@@ -13,7 +13,7 @@ use Graph::Simple;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 sub new
   {
@@ -88,20 +88,35 @@ sub from_text
   my $qr_node = _match_node();
   my $qr_attr = _match_attributes();
   my $qr_oatr = _match_optional_attributes();
+  my $qr_edge = _match_edge();
+
+  # for "[ 1 ] -> [ 2 ]" we push "2" on the stack and when we encounter
+  # " -> [ 3 ]" treat the stack as a node-list left of "3"
+  my @stack = ();
 
   my $backbuffer = '';	# left over fragments to be combined with next line
   LINE:
-  foreach my $curline (@lines)
+  while (@lines > 0 || $backbuffer ne '')
     {
     $nr++;
-    next if $curline =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
-    next if $curline =~ /^\s*\z/;	# empty line?
+
+    my $curline = '';
+    
+    if (@lines > 0)
+      {
+      $curline = shift @lines;
+      next if $curline =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
+      next if $curline =~ /^\s*\z/;	# empty line?
+      }
     
     chomp($curline);
 
     my $line = $backbuffer . $curline;
 
-    # remove comment (but leave \# intact):
+    # convert #808080 into \#808080
+    $line =~ s/:\s*(#[a-fA-F0-9]{3,6})/: \\$1/g;
+
+    # remove comment at end of line (but leave \# alone):
     $line =~ s/[^\\]#.*//;
 
     # remove white space at start/end
@@ -121,6 +136,7 @@ sub from_text
 
       $graph->set_attributes ( "$type$class", $att);
 
+      @stack = ();
       }
     # [ Berlin ]
     elsif ($line =~ /^$qr_node\z/)
@@ -137,6 +153,7 @@ sub from_text
         $node_a = $c->new( { name => $n1 } ); 
         $graph->add_node ( $node_a );
         }
+      @stack = ($node_a);
       }
     # [ Berlin ] { color: red; }
     elsif ($line =~ /^$qr_node$qr_attr\z/)
@@ -156,17 +173,23 @@ sub from_text
         }
 
       $node_a->set_attributes($a1);
+      @stack = ($node_a);
       }
     # [ Berlin ] -> [ Kassel ]
-    elsif ($line =~ /^$qr_node$qr_oatr\s*(<?)((=|-|- |\.)+)(>?)$qr_node$qr_oatr\z/)
+    elsif ($line =~ /^$qr_node$qr_oatr$qr_edge$qr_node$qr_oatr/)
       {
-      my $n1 = $1; my $n3 = $4; my $n6 = $7; my $a1 = $2 || ''; my $a2 = $8 || '';
+      my $n1 = $1; 				# left node name
+      my $n3 = $4; my $en = $5 || '';		# edge style and label
+      my $n6 = $8;				# right node name
+      my $a1 = $2 || ''; my $a2 = $9 || '';	# left/right node attributes
+
       my $att1 = $self->_parse_attributes($a1);
       my $att2 = $self->_parse_attributes($a2);
 
       # strip trailing spaces
       $n1 =~ s/\s*\z//;
       $n6 =~ s/\s*\z//;
+      $en =~ s/\s*\z//;
      
       # unquote special chars
       $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
@@ -186,13 +209,59 @@ sub from_text
       $style = '..' if $n3 =~ /^\.+\z/; 
       $style = '- ' if $n3 =~ /^(- )+\z/; 
       # XXX TODO: look at $n2 and $n4 for left/right direction
-      my $edge = $e->new( { style => $style . '>' } );
+      my $edge = $e->new( { style => $style . '>', name => $en } );
       $graph->add_edge ( $node_a, $node_b, $edge );
+      @stack = ($node_b);
+      $line =~ s/^$qr_node$qr_oatr$qr_edge$qr_node$qr_oatr//;
+      $backbuffer = $line;
+      next LINE;
+      }
+    # node chain continued like "-> [ Kassel ]"
+    elsif (@stack != 0 && $line =~ /^$qr_edge$qr_node$qr_oatr/)
+      {
+      my $n = $6;					# node name
+      my $ed = $2; my $en = $3 || '';			# edge style and label
+      my $a1 = $self->_parse_attributes($7||'');	# node attributes
+
+      # strip trailing spaces
+      $n =~ s/\s*\z//;
+      $en =~ s/\s*\z//;
+      # unquote special chars
+      $n =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+
+      my $node_b = $graph->node($n);
+      $node_b = $c->new( { name => $n } ) unless defined $node_b;
+
+      my $att1 = $self->_parse_attributes($a1);
+      $node_b->set_attributes ($att1);
+      
+      my $style = '--';	# default
+      $style = '==' if $ed =~ /^=+\z/; 
+      $style = '..' if $ed =~ /^\.+\z/; 
+      $style = '- ' if $ed =~ /^(- )+\z/; 
+
+      my $edge = $e->new( { style => $style . '>', name => $en } );
+
+      # add edges for all nodes in the left list
+      foreach my $node_a (@stack)
+        {
+        $graph->add_edge ( $node_a, $node_b, $edge );
+        }
+ 
+      # remember the right side
+      @stack = ($node_b);
+
+      $line =~ s/^$qr_edge$qr_node$qr_oatr//;
+      $backbuffer = $line;
+      next LINE;
       }
     else
       {
       # couldn't handle that fragement, so accumulate it
+      last LINE if @lines == 0;			# but not if it is the very last
+
       $backbuffer .= $curline;
+      @stack = ();
       next LINE;
       }
 
@@ -228,6 +297,19 @@ sub _match_node
   # return a regexp that matches something like " [ bonn ]" and returns
   # the inner text without the [] (might leave some spaces)
   qr/\s*\[\s*([^\]]+?[^\\])\]/;
+  }
+
+sub _match_edge
+  {
+  # matches an edge, like:
+  # <--, <==, <.. etc
+  # -->, ---->, ==> etc
+  # <-->, <---->, <==>, <..> etc
+  # - Text -->
+
+  # "- " must come before "-"!
+
+  qr/\s*(<?)(=|- |-|\.)+([^=\.>-]*?)(=|- |-|\.)*(>?)/;
   }
 
 sub _parse_attributes

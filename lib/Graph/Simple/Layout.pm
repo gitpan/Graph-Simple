@@ -8,7 +8,7 @@ package Graph::Simple::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 #############################################################################
 #############################################################################
@@ -57,7 +57,7 @@ sub layout
 
   my @done = ();			# stack with already done actions
   my $step = 0;
-  my $tries = 8;
+  my $tries = 6;
 
   TRY:
   while (@todo > 0)			# all actions on stack done?
@@ -189,7 +189,7 @@ sub _place_node
         
   # try to place node near the predecessor
   my @pre = $node->predecessors();
-  if (@pre == 1)
+  if (@pre == 1 && defined $pre[0]->{x})
     {
     my @tries = ( 
 	$pre[0]->{x} + 2, $pre[0]->{y},		# right
@@ -536,7 +536,8 @@ Graph::Simple::Layout - Layout the graph from Graph::Simple
 
 =head1 DESCRIPTION
 
-C<Graph::Simple::Layout> contains the actual layout code.
+C<Graph::Simple::Layout> contains just the actual layout code for
+L<Graph::Simple|Graph::Simple>.
 
 =head1 EXPORT
 

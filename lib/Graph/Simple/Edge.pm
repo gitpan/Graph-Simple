@@ -13,16 +13,11 @@ require Exporter;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 
-# Name of attribute under which the pointer to each Node/Edge object is stored
-# If you change this, change it also in Node.pm/Simple.pm!
-sub OBJ () { 'obj' };
-
 # The different celltypes for a path:
-  
 sub EDGE_SHORT	{ 0; }	# |->		a start/end at the same cell
 sub EDGE_START	{ 1; }	# |--		starting-point
 sub EDGE_END	{ 2; }	# -->		end-point
@@ -34,6 +29,7 @@ sub EDGE_N_W	{ 7; }	# _|		corner (N to W)
 sub EDGE_S_E	{ 8; }	# ,-		corner (S to E)
 sub EDGE_S_W	{ 9; }	# -,		corner (S to W)
 
+# Joints:
 sub EDGE_S_E_W	{ 10; }	# -,-		three-sided corner (S to W and S to E)
 sub EDGE_N_E_W	{ 11; }	# -'-		three-sided corner (N to W and N to E)
 sub EDGE_E_N_S	{ 12; }	# -|		three-sided corner (E to S and N)
@@ -277,7 +273,7 @@ Returns the edge as a little ascii representation.
 
 	my $name = $edge->name();
 
-Returns the name of the edge.
+Returns the name (also known as 'label') of the edge.
 
 =head2 style()
 

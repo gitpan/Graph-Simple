@@ -1,4 +1,4 @@
-# six nodes, and one long edge bend around a corner
+# six nodes, and one long edge with a corner
 
  [ Oranienburg ] -> [ Henningsdorf ]
  [ Oranienburg ] -> [ Herzberg ]

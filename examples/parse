@@ -24,5 +24,7 @@ warn ($graph->error()) if $graph->error();
 
 print $graph->as_txt();
 
+print $graph->as_ascii(), "\n";
+
 print $graph->css(), "\n", $graph->as_html();
 

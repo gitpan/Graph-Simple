@@ -27,3 +27,23 @@ Renamed to Graph::Simple:
   * Node: added incoming(), and track incoming edges from other nodes
   * added t/parser.t - test text parser
   * added t/ascii.t - parse various text files to ascii
+
+2005-01-03 v0.04 Tels 84 tests
+  * change code to work with Graph 0.50
+  * require Graph 0.50
+  * added: Group.pm -- a group of nodes
+  * added: examples/html.pl, examples/common.pl and TODO
+  * tests: use strict;, add t/edge.t
+  * Parser: document the different edge directions and styles
+  * Parser: construct edges with the proper style
+  * Parser: allow '..>' style
+  * Node: 
+    + document successorts()/predecessors(), as_txt(), as_html()
+    + implement as_html($tag)
+  * Graph:
+    + _trace_path() can also trace short, straight paths upwards
+    + as_txt() uses $edge->as_txt() to render edge
+    + as_ascii() generates proper output for edges with the right style
+    + as_ascii() no longer generates trailing whitespace on lines
+    + add css(), as_html_page(), html_page_footer(), html_page_header()
+    + extend documentation, fix typos, add list of limitations

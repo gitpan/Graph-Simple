@@ -1,5 +1,5 @@
 #############################################################################
-# (c) by Tels 2004. Part of Graph::Simple
+# (c) by Tels 2004 - 2005. Part of Graph::Simple
 #
 #############################################################################
 
@@ -11,9 +11,13 @@ use warnings;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.03';
 
 #############################################################################
+
+# Name of attribute under which the pointer to each Node/Edge object is stored
+# If you change this, change it also in Node.pm/Simple.pm!
+sub OBJ () { 'obj' };
 
 #############################################################################
 
@@ -90,6 +94,34 @@ sub style
   $self->{style};
   }
 
+sub nodes
+  {
+  # return all the nodes connected by this edge
+  my $self = shift;
+
+  }
+
+sub to_nodes
+  {
+  # return the nodes this edge connects to
+  my $self = shift;
+
+  }
+
+sub from_nodes
+  {
+  # return the nodes this edge connects from
+  my $self = shift;
+
+  }
+
+sub cells
+  {
+  # return all the cells this edge currently occupies
+  my $self = shift;
+
+  }
+
 1;
 __END__
 
@@ -117,13 +149,13 @@ Graph::Simple::Edge - An edge (a path from one node to another)
 
 	$graph = Graph::Simple->new();
 
-	$graph->add_edge($src, $dst, $edge);
+	$graph->add_edge($src, $dst, $ssl);
 
 	print $graph->as_ascii();
 
 =head1 DESCRIPTION
 
-A C<Graph::Simple::Edge> represents an edge between two nodes in a
+A C<Graph::Simple::Edge> represents an edge between two (or more) nodes in a
 simple graph.
 
 Each edge has a direction (from source to destination, or back and forth),
@@ -149,7 +181,34 @@ Returns the edge as a little ascii representation.
 
 =head2 name()
 
+	my $name = $edge->name();
+
+Returns the name of the edge.
+
 =head2 style()
+
+	my $style = $edge->style();
+
+Returns the style of the edge.
+
+=head2 to_nodes()
+
+	my @nodes = $edge->to_nodes();
+
+Return the nodes this edge connects to, as objects.
+
+=head2 from_nodes()
+
+	my @nodes = $edge->from_nodes();
+
+Return the nodes (that connections come from) as objects.
+
+=head2 nodes()
+
+	my @nodes = $edge->nodes();
+
+Return all the nodes connected (in either direction) by this edge
+as objects.
 
 =head1 EXPORT
 
@@ -161,11 +220,9 @@ L<Graph::Simple>.
 
 =head1 AUTHOR
 
-Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
 
 =head1 LICENSE
-
-Copyright (C) 2004 by Tels
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GPL. See the LICENSE file for more details.

@@ -1,23 +1,32 @@
 CHANGES
+INSTALL
 Makefile.PL
 MANIFEST
 LICENSE
 README
 SIGNATURE
-examples/ascii.pl
+TODO
+examples/common.pl		generate example graphs
+examples/ascii.pl		examples as ASCII
+examples/html.pl		examples as HTML
 t/ascii.t
 t/graph.t
+t/edge.t
+t/group.t
 t/node.t
-t/simple.t
 t/parser.t
+t/simple.t
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
+t/in/4nodes.txt
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/3nodes.txt
+t/out/4nodes.txt
 lib/Graph/Simple.pm
 lib/Graph/Simple/Parser.pm
 lib/Graph/Simple/Node.pm
 lib/Graph/Simple/Edge.pm
+lib/Graph/Simple/Group.pm
 META.yml                                 Module meta-data (added by MakeMaker)

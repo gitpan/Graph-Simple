@@ -1,7 +1,7 @@
 #############################################################################
 # Parse text definition into a Graph::Simple object
 #
-# (c) by Tels 2004.
+# (c) by Tels 2004 - 2005.
 #############################################################################
 
 package Graph::Simple::Parser;
@@ -13,7 +13,7 @@ use Graph::Simple;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.02';
+$VERSION = '0.04';
 
 sub new
   {
@@ -87,17 +87,24 @@ sub from_text
       }
 
     # [ Berlin ] -> [ Kassel ]
-    #                      1              2    3     4           5
-    if ($line =~ /^\[\s*([^\]]+?)\s*\]\s*(<?)([=-]+)(>?)\s*\[\s*([^\]]+?)\s*\]/)
+    #                      1              2    3     4                 6
+    if ($line =~ /^\[\s*([^\]]+?)\s*\]\s*(<?)((=|-|- |\.)+)(>?)\s*\[\s*([^\]]+?)\s*\]/)
       {
-      my $n1 = $1; my $n5 = $5;
+      my $n1 = $1; my $n6 = $6; my $n3 = $3;
       my $node_a = $graph->node($n1);
-      my $node_b = $graph->node($n5);
+      my $node_b = $graph->node($n6);
       if (!defined $node_a || !defined $node_b)
         {
         $node_a = $c->new( { name => $n1 } ) unless defined $node_a;
-        $node_b = $c->new( { name => $n5 } ) unless defined $node_b;
-        my $edge = $e->new( { style => '-->' } );
+        $node_b = $c->new( { name => $n6 } ) unless defined $node_b;
+        my $style = '--';	# default
+#        print STDERR "edge style '$n3'\n";
+        $style = '==' if $n3 =~ /^=+\z/; 
+        $style = '..' if $n3 =~ /^\.+\z/; 
+        $style = '- ' if $n3 =~ /^(- )+\z/; 
+#        print STDERR "edge style '$style'\n";
+        # XXX TODO: look at $n2 and $n4 for left/right direction
+        my $edge = $e->new( { style => $style . '>' } );
         $graph->add_edge ( $node_a, $node_b, $edge ); 
         }
       next LINE;
@@ -149,8 +156,25 @@ The input consists of text describing the graph.
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]
 	[ Bonn ]      --> [ Frankfurt ]
+	[ Bonn ]      ==> [ Frankfurt ]
 
 See L<Output> for how this will be rendered in ASCII art.
+
+The edges between the nodes can have the following styles:
+
+	-->		line
+	==>		double line
+	..>		dotted
+	- >		dashed
+
+In additon the following three directions are possible:
+
+	 -->		connect the node on the left to the node on the right
+	<-->		the direction between the nodes
+			goes into both directions at once
+	<--		connect the node on the right to the node on the left
+
+Of course you can combine all three directions with all styles.
 
 =head2 Output
 
@@ -158,6 +182,8 @@ The output will be a L<Graph::Simple> object, see there for what you
 can do with it.
 
 =head1 EXAMPLES
+
+See L<Graph::Simple> for an extensive list of examples.
 
 =head1 METHODS
 
@@ -196,11 +222,9 @@ L<Graph::Simple>.
 
 =head1 AUTHOR
 
-Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
 
 =head1 LICENSE
-
-Copyright (C) 2004 by Tels
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms of the GPL. See the LICENSE file for information.

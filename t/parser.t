@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 10;
+   plan tests => 13;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Parser") or die($@);
@@ -54,4 +54,7 @@ __DATA__
   [  Dresden  ]  |1,Dresden
 [ Bonn ] -> [ Berlin ]|2,Berlin,Bonn
 [ Bonn ] -> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] ==> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] ..> [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
+[ Bonn ] - > [ Berlin ]\n[Berlin] -> [Frankfurt]|3,Berlin,Bonn,Frankfurt
 

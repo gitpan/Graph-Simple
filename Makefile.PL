@@ -6,7 +6,8 @@ sub MY::metafile {
   my $self = shift;
   if (!eval { require YAML; 1 })
   {
-    warn ("YAML not installed, cannot override metafile"); return $self->SUPER::metafile_target(@_);
+    warn ("YAML not installed, 'make dist' will not override 'META.yml'.");
+    return $self->SUPER::metafile_target(@_);
   };
 
   my $node = new YAML::Node {};
@@ -33,7 +34,7 @@ WriteMakefile(
     VERSION_FROM      => 'lib/Graph/Simple.pm', # finds $VERSION
     PREREQ_PM         => {
 #	Graph::Layout::Aesthetic => 0.08,
-	Graph => 0.20105,
+	Graph => 0.5,
 	},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Graph/Simple.pm', # retrieve abstract from module

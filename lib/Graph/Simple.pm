@@ -1,7 +1,7 @@
 #############################################################################
 # Layout directed graphs as 2D boxes on a flat plane
 #
-# (c) by Tels 2004.
+# (c) by Tels 2004-2005.
 #############################################################################
 
 package Graph::Simple;
@@ -11,14 +11,18 @@ use strict;
 use warnings;
 use Graph::Simple::Node;
 use Graph::Simple::Edge;
+use Graph 0.50;
 use Graph::Directed;
 
-use vars qw/$VERSION @ISA/;
+use vars qw/$VERSION/;
 
-@ISA = qw/Graph::Directed/;
+$VERSION = '0.04';
 
-$VERSION = '0.03';
+# Name of attribute under which the pointer to each Node/Edge object is stored
+# If you change this, change it also in Node.pm/Edge.pm!
+sub OBJ () { 'obj' };
 
+#############################################################################
 sub new
   {
   my $class = shift;
@@ -38,6 +42,39 @@ sub _init
   $self->{error} = '';
   $self->{debug} = 0;
   
+  $self->{html_header} = '';
+  $self->{html_footer} = '';
+  $self->{html_style} = 'display: block;';
+  $self->{html_css} = <<HERE
+ <style type="text/css">
+  <!--
+  .node {
+    border: 1px solid black;
+    background: white;
+    padding: 0.2em;
+    margin: 0.1em;
+    text-align: center;
+  }
+  .edge {
+    border: none;
+    background: inherit;
+    padding: 0.2em;
+    margin: 0.1em;
+    text-align: center;
+  }
+  .graph {
+    border: 1px solid black;
+    background: #e0e0f0;
+    margin: 0.5em;
+    padding: 0.7em;
+  }
+  -->
+ </style>
+HERE
+;
+
+  $self->{graph} = Graph::Directed->new();
+  
   foreach my $k (keys %$args)
     {
 #    if ($k !~ /^(|debug)\z/)
@@ -51,6 +88,9 @@ sub _init
 
   $self;
   }
+
+#############################################################################
+# accessors
 
 sub score
   {
@@ -67,9 +107,125 @@ sub error
   $self->{error};
   }
 
+sub nodes
+  {
+  # return all nodes as objects
+  my ($self) = @_;
+
+  my $g = $self->{graph};
+
+  my @V = $g->vertices();
+  
+  return scalar @V unless wantarray;		# shortcut
+
+  my @nodes = ();
+  foreach my $k (@V)
+    {
+    push @nodes, $g->get_vertex_attribute( $k, OBJ );
+    }
+  @nodes;
+  }
+
+sub edges
+  {
+  # return all the edges as objects
+  my ($self) = @_;
+
+  my $g = $self->{graph};
+
+  my @E = $g->edges();
+
+  return scalar @E unless wantarray;		# shortcut
+
+  my @edges = ();
+  foreach my $k (@E)
+    {
+    push @edges, $g->get_edge_attribute( $k, OBJ );
+    }
+  @edges;
+  }
+
+sub sorted_nodes
+  {
+  # return all nodes as objects, sorted by their id
+  my ($self) = @_;
+
+  my @nodes = sort { $a->{id} <=> $b->{id} } $self->nodes();
+  @nodes;
+  }
+
+sub edge
+  {
+  # return an edge between two nodes as object
+  my ($self, $x,$y) = @_;
+
+  # turn objects into names (e.g. unique key)
+  $x = $x->{name} if ref $x;
+  $y = $y->{name} if ref $y;
+
+  $self->{graph}->get_edge_attribute( $x, $y, OBJ );
+  }
+
+sub node
+  {
+  # return node by name
+  my $self = shift;
+  my $name = shift || '';
+
+  $self->{graph}->get_vertex_attribute( $name, OBJ );
+  }
+
 #############################################################################
 #############################################################################
-# as_foo routines
+# output (as_txt, as_ascii, as_html) routines
+
+sub css
+  {
+  my $self = shift;
+
+  $self->{html_css};
+  }
+
+sub html_page_header
+  {
+  my $self = shift;
+  
+  my $html = <<HTML
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+ <head>
+ ##CSS##
+ </head>
+<body bgcolor=white color=black>
+HTML
+;
+
+  $html =~ s/##CSS##/$self->css()/e;
+
+  $html;
+  }
+
+sub html_page_footer
+  {
+  my $self = shift;
+
+  "\n</body></html>\n";
+  }
+
+sub as_html_page
+  {
+  my $self = shift;
+
+  $self->layout() unless defined $self->{score};
+
+  my $html = $self->html_page_header();
+
+  $html .= $self->as_html();
+
+  $html .= $self->html_page_footer();
+
+  $html;
+  }
 
 sub as_html
   {
@@ -78,6 +234,55 @@ sub as_html
 
   $self->layout() unless defined $self->{score};
 
+  my $html = "\n" . $self->{html_header};
+ 
+  my $cells = $self->{cells};
+  my ($rows,$cols);
+
+  # find all x and y occurances to sort them by row/columns
+  for my $k (keys %$cells)
+    {
+    my ($x,$y) = split/,/, $k;
+    my $node = $cells->{$k};
+
+    # trace the rows we do have
+    $rows->{$y}->{$x} = $node;
+    # record all possible columns
+    $cols->{$x} = undef;
+    }
+  
+  $html .= "\n<table class=\"graph\" border=0 cellpadding=4px cellspacing=3px";
+  $html .= " style=\"$self->{html_style}\"" if $self->{html_style};
+  $html .= ">\n";
+
+  my $tag = $self->{html_tag} || 'td';
+
+  # now run through all rows, and for each of them through all columns 
+  for my $y (sort { $a <=> $b } keys %$rows)
+    {
+
+    $html .= " <tr>\n";
+
+    # for all possible columns
+    for my $x (sort { $a <=> $b } keys %$cols)
+      {
+      if (!exists $rows->{$y}->{$x})
+	{
+	$html .= "  <$tag></$tag>\n";
+	next;
+	}
+      my $node = $rows->{$y}->{$x};
+#      print STDERR "row $y, col $x = $node->{name}\n";
+      $html .= "  " . $node->as_html('td');
+      }
+
+    $html .= " </tr>\n";
+
+    }
+
+  $html .= "</table>\n" . $self->{html_footer} . "\n";
+  
+  $html;
   } 
 
 ############################################################################# 
@@ -88,22 +293,22 @@ sub as_txt
   # does not need a layout() before hand!
   my ($self) = shift;
 
-  my @nodes = $self->nodes();
+  my @nodes = $self->sorted_nodes();
 
   my $txt = '';
   foreach my $n (@nodes)
     {
     my @out = $n->successors();
     my $first = $n->as_txt();
-    if ((@out == 0) && ($n->predecessors() == 0))
+    if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
       {
       $txt .= $first . "\n";
       }
-    foreach my $other (@out)
+    foreach my $other (reverse @out)
       {
       # XXX TODO: honour style of connection
       my $edge = $self->edge( $n, $other );
-      $txt .= $first . ' --> ' . $other->as_txt() . "\n";
+      $txt .= $first . $edge->as_txt() . $other->as_txt() . "\n";
       }
     }
 
@@ -176,10 +381,6 @@ sub as_ascii
 
   print STDERR "Have ", scalar @V, " nodes\n" if $self->{debug};
 
-  #use Data::Dumper;
-  #print "rows: ", Dumper($rows),"\n";
-  #print "cols: ", Dumper($cols),"\n";
-
   # generate a "framebuffer"
   my @fb = ();
   # find out max. dimensions
@@ -224,7 +425,9 @@ sub as_ascii
 
   for my $y (0..$max_y)
     {
-    $out .= $fb[$y] . "\n";
+    my $line = $fb[$y];
+    $line =~ s/\s+\z//;		# remove trailing whitespace
+    $out .= $line . "\n";
     }
 
   $out;
@@ -242,7 +445,7 @@ sub layout
   ###########################################################################
   # prepare our stack of things we need to do before we are finished
 
-  my @V = $self->nodes();
+  my @V = $self->sorted_nodes();
 
   my @todo;				# actions still to do
   # for all nodes, reset their pos and push them on the todo stack
@@ -253,7 +456,6 @@ sub layout
     push @todo, $n;			# node needs to be placed
     foreach my $o ($n->successors())
       {
-#      use Data::Dumper; print Dumper($n), Dumper($o);
       print STDERR "push $n->{name} => $o->{name}\n" if $self->{debug};
       push @todo, [ $n, $o ];		# paths to all targets need to be found
       }
@@ -459,7 +661,9 @@ sub _trace_path
     my $x = $src->{x} + 1; my $y = $src->{y};
     push @coord, $x, $y;
     print STDERR "# Putting --> at cell $x,$y\n" if $self->{debug};
-    my $path = Graph::Simple::Node->new( name => "\n -->", border => 'none', w => 5 );
+
+    my $path = $self->_gen_edge_right( $src, $dst);
+
     $cells->{"$x,$y"} = $path;
     $path->{x} = $x;
     $path->{y} = $y;
@@ -472,7 +676,9 @@ sub _trace_path
     my $x = $src->{x}; my $y = $src->{y} + 1;
     push @coord, $x, $y;
     print STDERR "# Putting v at cell $x,$y\n" if $self->{debug};
-    my $path = Graph::Simple::Node->new( name => "  |\n  |\n  v", border => 'none', w => 5, h => 3);
+
+    my $path = $self->_gen_edge_down( $src, $dst);
+
     $cells->{"$x,$y"} = $path;
     $path->{x} = $x;
     $path->{y} = $y;
@@ -485,11 +691,28 @@ sub _trace_path
     my $x = $src->{x}; my $y = $src->{y} + 1;
     push @coord, $x, $y;
     print STDERR "# Putting <-- at cell $x,$y\n" if $self->{debug};
-    my $path = Graph::Simple::Node->new( name => "\n <--", border => 'none', w => 5);
+
+    my $path = $self->_gen_edge_left( $src, $dst);
+
     $cells->{"$x,$y"} = $path;
     $path->{x} = $x;
     $path->{y} = $y;
     $mod = 3;				# straight +1, left +1, short +1
+    }
+  elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} + 2)
+    {
+#    print STDERR "# Found simple path from $src->{name} up to $dst->{name}\n";
+    # simple case
+    my $x = $src->{x}; my $y = $src->{y} - 1;
+    push @coord, $x, $y;
+    print STDERR "# Putting v at cell $x,$y\n" if $self->{debug};
+
+    my $path = $self->_gen_edge_up( $src, $dst);
+
+    $cells->{"$x,$y"} = $path;
+    $path->{x} = $x;
+    $path->{y} = $y;
+    $mod = 3;				# straight +1, up +1, short +1
     }
   else
     {
@@ -501,34 +724,88 @@ sub _trace_path
   ($mod,@coord);
   }
 
+sub _gen_edge_right
+  {
+  my ($self, $src, $dst) = @_;
+ 
+  my $s = $self->edge($src,$dst);
+
+  Graph::Simple::Node->new(
+    name => "\n $s->{style}", border => 'none', class => 'edge', w => 5, 
+    );
+  }
+
+sub _gen_edge_down
+  {
+  my ($self, $src, $dst) = @_;
+ 
+  my $s = $self->edge($src,$dst);
+
+  # Downwards we can only do "|" (line), "| " (dashed) or "." (dotted)
+  # e.g. no double line
+
+  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
+  my $style2 = $style;
+  $style2 = ' ' if $s->{style} =~ /- /;
+
+  Graph::Simple::Node->new(
+    name => "  $style\n  $style2\n  v",
+    border => 'none', class => 'edge', w => 5, h => 3
+    );
+  }
+
+sub _gen_edge_up
+  {
+  my ($self, $src, $dst) = @_;
+ 
+  my $s = $self->edge($src,$dst);
+
+  # Upwards we can only do "|" (line), "| " (dashed) or "." (dotted)
+  # e.g. no double line
+
+  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
+  my $style2 = $style;
+  $style2 = ' ' if $s->{style} =~ /- /;
+
+  Graph::Simple::Node->new(
+    name => "  ^\n  $style2\n  $style\n",
+    border => 'none', class => 'edge', w => 5, h => 3
+    );
+  }
+
+sub _gen_edge_left
+  {
+  my ($self, $src, $dst) = @_;
+ 
+  my $s = $self->edge($src,$dst);
+
+  $s = s/>//;
+  Graph::Simple::Node->new(
+    name => "\n <$s", border => 'none', class => 'edge', w => 5, w => 3,
+    );
+  }
+
 sub add_edge
   {
   my ($self,$x,$y,$edge) = @_;
+  
+  my $g = $self->{graph};
 
-  # register the nodes with ourself
-  $x->{graph} = $self;
-  $y->{graph} = $self;
+  # register the nodes with our graph object
+  $x->{graph} = $g;
+  $y->{graph} = $g;
 
   # add edge from X to Y (and X and Y)
-  $self->SUPER::add_edge( $x->{name}, $y->{name} );
+  $g->add_edge( $x->{name}, $y->{name} );
 
   # store $x and $y
-  $self->set_attribute( 'obj', $x->{name}, $x);
-  $self->set_attribute( 'obj', $y->{name}, $y);
-
+  $g->set_vertex_attribute( $x->{name}, OBJ, $x);
+  $g->set_vertex_attribute( $y->{name}, OBJ, $y);
+ 
   $edge = Graph::Simple::Edge->new() unless defined $edge;
 
   # store the edge, too
-  $self->set_attribute( 'obj', $x->{name}, $y->{name}, $edge);
-
-#  # add the two nodes (does work if x or y is already in the graph)
-#  $self->{graph}->{$x->{id}} = $x;
-#  $self->{graph}->{$y->{id}} = $y;
-#
-#  $edge = Graph::Simple::Edge->new() unless defined $edge;
-
-#  # link them
-#  $x->link($y);
+  $g->set_edge_attribute( $x->{name}, $y->{name}, OBJ, $edge);
 
   $self->{score} = undef;			# invalidate last layout
 
@@ -539,55 +816,21 @@ sub add_node
   {
   my ($self,$x) = @_;
 
-  $self->SUPER::add_vertex( $x->{name} );
-  $self->set_attribute( 'obj', $x->{name}, $x);
+  my $g = $self->{graph};
+
+  $g->add_vertex( $x->{name} );
+  $g->set_vertex_attribute( $x->{name}, OBJ, $x);
 
   $self->{score} = undef;			# invalidate last layout
 
   $self;
   }
 
-sub nodes
-  {
-  # return all nodes as objects
-  my ($self) = @_;
-
-  my @nodes = ();
-
-  my @V = $self->vertices();
-  foreach my $k (@V)
-    {
-    push @nodes, $self->get_attribute( 'obj', $k );
-    }
-  @nodes;
-  }
-
-sub edge
-  {
-  # return an edge between two nodes as object
-  my ($self, $x,$y) = @_;
-
-  # turn objects into names (e.g. unique key)
-  $x = $x->{name} if ref $x;
-  $y = $y->{name} if ref $y;
-
-  $self->get_attribute( 'obj', $x, $y );
-  }
-
-sub node
-  {
-  # return node by name
-  my $self = shift;
-  my $name = shift || '';
-
-  $self->get_attribute( 'obj', $name );
-  }
-
 1;
 __END__
 =head1 NAME
 
-Graph::Simple - Layout graphs as 2D boxes on a flat plane
+Graph::Simple - Render graphs as ASCII or HTML
 
 =head1 SYNOPSIS
 
@@ -608,18 +851,41 @@ Graph::Simple - Layout graphs as 2D boxes on a flat plane
 	$graph->layout();
 
 	print $graph->as_ascii( );
-	
+
+	# prints:
+
+	# +------+     +--------+
+	# | Bonn | --> | Berlin |
+	# +------+     +--------+
+
+	# raw HTML section
 	print $graph->as_html( );
+
+	# complete HTML page (with CSS)
+	print $graph->as_html_page( );
 
 	# creating a graph from a textual description	
 	use Graph::Simple::Parser;
 	my $parser = Graph::Simple::Parser->new();
 
 	my $graph = $parser->from_text(
-		'[ Bonn ] => [ Berlin ]'.
-		'[ Berlin ] => [ Rostock ]'.
+		"[ Bonn ] => [ Berlin ] \n".
+		"[ Bonn ] => [ Rostock ]"
 	);
+
 	print $graph->as_ascii( );
+
+	# Outputs something like:
+
+	# +------+       +---------+
+	# | Bonn |   --> | Rostock |
+	# +------+       +---------+
+	#   |
+	#   |
+	#   v
+	# +--------+
+	# | Berlin |
+	# +--------+
 
 =head1 DESCRIPTION
 
@@ -634,11 +900,15 @@ charts, network diagrams, or hirarchy trees.
 Apart from driving the module with Perl code, you can also use
 C<Graph::Simple::Parser> to parse simple graph descriptions like:
 
+=for graph
+
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]
 	[ Bonn ]      --> [ Frankfurt ]
 
-See L<Output> for how this will be rendered in ASCII art.
+=end
+
+See L<Examples> for how this might be rendered.
 
 =head2 Output
 
@@ -662,6 +932,59 @@ HTML tables with CSS making everything "pretty".
 
 =head1 EXAMPLES
 
+The following examples are given in the simple text format that is understood
+by L<Graph::Simple::Parser>.
+
+If you only see ASCII output in the following examples, then your pod2html
+converter did not recognize the special graph paragraphs.
+
+You can use the converter in C<examples/pod2html> in this distribution to
+generate a pretty HTML document with nice graph "drawings" from this document.
+
+=head2 One node
+
+The most simple graph (apart from the empty one :) is a graph consisting of
+only one node:
+
+=for graph
+
+	[ Dresden ]
+
+=end
+
+=head2 Two nodes
+
+A simple graph consisting of two nodes, linked together by a directed edge:
+
+=for graph
+
+	[ Bonn ] -> [ Berlin ]
+
+=end
+
+=head2 Three nodes
+
+A graph consisting of three nodes, and both are linked from the first:
+
+=for graph
+
+	[ Bonn ] -> [ Berlin ]
+	[ Bonn ] -> [ Hamburg ]
+
+=end
+
+=head2 Two not connected graphs
+
+A graph consisting of two seperate parts, both of them not connected
+to each other:
+
+=for graph
+
+	[ Bonn ] -> [ Berlin ]
+	[ Freiburg ] -> [ Hamburg ]
+
+=end
+
 =head1 METHODS
 
 C<Graph::Simple> supports the following methods:
@@ -683,7 +1006,7 @@ valid options:
 
 	my $score = $graph->score();
 
-Returns the score of the graph, or undef if L<layout()> has not yet bee called.
+Returns the score of the graph, or undef if L<layout()> has not yet been called.
 
 Higher scores are better, although you cannot compare scores for different
 graphs. The score should only be used to compare different layouts of the same
@@ -722,6 +1045,9 @@ Returns the last error. Optionally, takes an error message to be set.
 
 =head2 layout()
 
+Creates the internal structures to layout the graph. This will be done
+behind the scenes of you call any of the C<as_FOO> methods. 
+
 =head2 as_ascii()
 
 	print $graph->as_ascii();
@@ -732,7 +1058,22 @@ Return the graph layout in ASCII art.
 
 	print $graph->as_html();
 
-Return the graph layout as HTML page with embedded CSS.
+Return the graph layout as HTML section. See L<css()> to get the
+CSS section to go with that HTML code. If you want a complete HTML page
+then use L<as_html_page()>.
+
+=head2 as_html_page()
+
+	print $graph->as_html_page();
+
+Return the graph layout as HTML complete with headers, CSS section and
+footer. Can be viewed in the browser of your choice.
+
+=head2 css()
+
+	my $css = $graph->css();
+
+Return CSS code for that graph. See L<as_html()>.
 
 =head2 as_txt()
 
@@ -787,7 +1128,7 @@ Return node by name (case sensitive). Returns undef of the node couldn't be foun
 	my $edge = $graph->edge( $node1, $node2 );
 
 Return edge object between nodes C<$node1> and C<$node2>. Both nodes can be
-either names of C<Graph::Simple::Node> objects.
+either names or C<Graph::Simple::Node> objects.
 
 =head1 EXPORT
 
@@ -800,15 +1141,85 @@ L<Graph::Layout::Aesthetic>, L<Graph> and L<Graph::Simple::Parser>.
 There is also an very old, unrelated project from ca. 1995, which does something similiar.
 See L<http://rw4.cs.uni-sb.de/users/sander/html/gsvcg1.html>.
 
-=head1 AUTHOR
+Testcases and more examples under L<http://bloodgate.com/perl/graph/>.
 
-Tels L<http://bloodgate.com>
+=head1 LIMITATIONS
+
+This module is a proof-of-concept and has currently some serious limitations.
+Hopefully further development will lift these.
+
+=head2 Paths
+
+=over 2
+
+=item No crossing
+
+Currently edges (paths from node to node) cannot cross each other. This limits
+kind of graphs you can do quite seriously.
+
+=item No bends
+
+All nodes must be in straigh line of sight (up, down, left or right) of each
+other - a bend cannot yet be generated. So the following graph output is not
+possible:
+
+	+------+     +--------+
+	| Bonn | --> | Berlin |
+	+------+     +--------+
+	  |            |
+	  |            |
+	  |            v
+	  |          +---------+
+	  +--------> | Potsdam |
+	             +---------+
+
+The L<No long edges> flaw must be fixed first to allow this feature.
+
+=item No joints
+
+Currently it is not possible that an edge joins another edge like this:
+
+	+------+     +--------+     +-----------+
+	| Bonn | --> | Berlin | --> | Magdeburg |
+	+------+     +--------+     +-----------+
+	  |            |	      |
+	  |            |	      |
+	  |            |	      v
+	  |            v	    +---------+
+	  +-----------------------> | Potsdam |
+	             		    +---------+
+
+=item No long edges
+
+Edges are always exactly one cell long. This seriously hampers node
+placement (see below). To get this feature working we need edges
+that keep a list of cells they occupy.
+
+=back
+
+All the flaws with the edges canbe corrected easily, but there was simple
+not enough time for that yet.
+
+=head2 Distances
+
+Nodes are always placed 2 cells away from each other. If this fails,
+the node will be placed a random distance away, and this will cause
+the path tracing code to not find an edge between the two nodes.
+
+=head2 Placement
+
+Currently the node placement is dependend on the order the nodes were
+inserted into the graph. In reality it should start with nodes having
+no or little incoming edges and then progress to nodes with more 
+incoming edges.
 
 =head1 LICENSE
 
-Copyright (C) 2004 by Tels
-
 This library is free software; you can redistribute it and/or modify
 it under the same terms of the GPL. See the LICENSE file for information.
+
+=head1 AUTHOR
+
+Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
 
 =cut

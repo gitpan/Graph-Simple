@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 13;
+   plan tests => 16;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -25,12 +25,14 @@ my @files = readdir(DIR); closedir(DIR);
 
 foreach my $f (@files)
   {
-  print "at $f\n";
   next unless -f "in/$f";			# only files
 
+  print "# at $f\n";
   my $txt = readfile("in/$f");
   my $graph = $parser->from_text($txt);		# reuse parser object
 
+  $txt =~ s/\n\s+/\n/;				# remove trailing whitespace
+ 
   $f =~ /^(\d+)/;
   my $nodes = $1;
 
@@ -46,9 +48,17 @@ foreach my $f (@files)
   is ($ascii, $out, "from $f");
 
   # XXX TODO
-  $txt =~ s/[=-]+>/-->/g;			# normalize arrows
+  #$txt =~ s/[=-]+>/-->/g;			# normalize arrows
 
-  is ($graph->as_txt(), $txt, "$f as_txt")
+  # input might have whitespace at front, remove it because output doesn't
+  $txt =~ s/(^|\n)\s+/$1/g;
+
+  is ($graph->as_txt(), $txt, "$f as_txt");
+
+  # print a debug output
+  my $debug = $ascii;
+  $debug =~ s/\n/\n# /g;
+  print "# Generated:\n#\n# $debug\n";
   }
 
 1;

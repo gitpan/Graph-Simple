@@ -11,11 +11,12 @@ BEGIN
 
 can_ok ("Graph::Simple", qw/
   new
-  as_ascii
+  css as_html as_html_page as_txt as_ascii
+  html_page_header
+  html_page_footer
   error
+  node nodes edges
   add_edge
-  nodes
-  vertices
   add_node
   score
   /);

@@ -20,13 +20,16 @@ t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
 t/in/4nodes.txt
+t/in/4_2x2nodes.txt
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/3nodes.txt
 t/out/4nodes.txt
+t/out/4_2x2nodes.txt
 lib/Graph/Simple.pm
+lib/Graph/Simple/Layout.pm	actual layout routines
 lib/Graph/Simple/Parser.pm
 lib/Graph/Simple/Node.pm
 lib/Graph/Simple/Edge.pm
 lib/Graph/Simple/Group.pm
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml			Module meta-data (added by MakeMaker)

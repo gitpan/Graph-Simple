@@ -33,20 +33,24 @@ would be rendered in ASCII as:
 The HTML output would look similiar except be more pretty :o)
 
 Examples
---------
+========
 
 Run the following examples:
 
-ASCII output:
+ASCII output
+------------
 
 	perl examples/ascii.pl
 
-HTML output (open test.html afterwards in your favourite browser):
+HTML output
+-----------
+
+Open test.html afterwards in your favourite browser:
 
 	perl examples/html.pl >test.html
 
 Installation
-------------
+============
 
 See INSTALL on how to install this module.
 

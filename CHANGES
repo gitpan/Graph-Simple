@@ -18,7 +18,7 @@ Revision history for Graph::Layout::Simple.
 Renamed to Graph::Simple:
 
 2004-12-29 v0.03 Tels 52 tests
-  * is a subclass of Graph::Directed, so add it as prereq again :°)
+  * is a subclass of Graph::Directed, so add it as prereq again :o)
   * Graph::Layout::Simple::Parser - parse graph from text
   * Graph::Layout::Simple::Edge - an edge between two nodes
   * Graph: added node() -  find node by name
@@ -47,3 +47,11 @@ Renamed to Graph::Simple:
     + as_ascii() no longer generates trailing whitespace on lines
     + add css(), as_html_page(), html_page_footer(), html_page_header()
     + extend documentation, fix typos, add list of limitations
+
+2005-01-03 v0.05 Tels 87 tests
+  * fix special paragraphs in pod to use =begin instead of =for
+  * typos in pod
+  * some more clarifications for LIMITATIONS
+  * move the layout code to Graph::Simple::Layout
+  * add a testcase with two not-connected node-pools in one graph
+  * amend README, INSTALL

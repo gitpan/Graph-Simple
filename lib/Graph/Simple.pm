@@ -9,6 +9,7 @@ package Graph::Simple;
 use 5.006001;
 use strict;
 use warnings;
+use Graph::Simple::Layout;
 use Graph::Simple::Node;
 use Graph::Simple::Edge;
 use Graph 0.50;
@@ -16,7 +17,7 @@ use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm/Edge.pm!
@@ -434,356 +435,6 @@ sub as_ascii
   }
 
 #############################################################################
-# layout the graph
-
-sub layout
-  {
-  my $self = shift;
-
-  # XXX todo: find a better layout for all the nodes
-
-  ###########################################################################
-  # prepare our stack of things we need to do before we are finished
-
-  my @V = $self->sorted_nodes();
-
-  my @todo;				# actions still to do
-  # for all nodes, reset their pos and push them on the todo stack
-  foreach my $n (@V)
-    {
-    $n->{x} = undef;			# mark as not placed yet
-    $n->{y} = undef;
-    push @todo, $n;			# node needs to be placed
-    foreach my $o ($n->successors())
-      {
-      print STDERR "push $n->{name} => $o->{name}\n" if $self->{debug};
-      push @todo, [ $n, $o ];		# paths to all targets need to be found
-      }
-    }
-
-  ###########################################################################
-  # prepare main backtracking-loop
-
-  my $score = 0;			# overall score
-  $self->{cells} = {};			# cell array (0..x,0..y)
-  my $cells = $self->{cells};
-
-  print STDERR "# Start\n" if $self->{debug};
-
-  my $step = 0;
-  TRY:
-  while (@todo > 0)			# all actions on stack done?
-    {
-    $step ++;
-#    sleep(1) if $self->{debug};
-    
-    print STDERR "\n# Step $step: Score is $score\n" if $self->{debug};
-
-    # pop one action
-    my $action = shift @todo;
-
-    my ($src, $dst, $mod, @coord);
-
-    print STDERR "# Step $step: Action $action\n" if $self->{debug};
-
-    if (ref($action) ne 'ARRAY')
-      {
-      print STDERR "# step $step: got place '$action->{name}'\n" if $self->{debug};
-      # is node to be placed
-      if (!defined $action->{x})
-        {
-        $mod = $self->_place_node( $cells, $action );
-        }
-      else
-        {
-        $mod = 0;				# already placed
-        }
-      }
-    else
-      {
-      # find a path to the target node
-
-      ($src,$dst) = @$action;
-
-      print STDERR "# step $step: got trace '$src->{name}' => '$dst->{name}'\n" if $self->{debug};
-
-      # if target node not yet placed
-      if (!defined $dst->{x})
-        {
-        print STDERR "# Step $step: Try to place node to the right\n" if $self->{debug};
-
-        # try to place node to the right
-        my $x = $src->{x} + 2;
-        my $y = $src->{y};
-
-        if (!exists $cells->{"$x,$y"})
-          {
-          print STDERR "# Step $step: Placing $dst->{name} at $x,$y\n" if $self->{debug};
-          $cells->{"$x,$y"} = $dst;
-          $dst->{x} = $x;
-          $dst->{y} = $y;
-          }
-        else
-          {
-          # try to place node down
-          my $x = $src->{x};
-          my $y = $src->{y} + 2;
-
-          if (!exists $cells->{"$x,$y"})
-            {
-            print STDERR "# Step $step: Placing $dst->{name} at $x,$y\n" if $self->{debug};
-            $cells->{"$x,$y"} = $dst;
-            $dst->{x} = $x;
-            $dst->{y} = $y;
-            }
-          }
-
-        if (!defined $dst->{x})
-          {
-          # simple placement didn't work, so try generic solition
-          print STDERR "# Step $step: Couldn't place $dst->{name} at $x,$y; retrying generic\n"
-           if $self->{debug};
-
-          # put current action back
-          unshift @todo, $action;
-          # insert action to place target before hand
-          unshift @todo, $dst;
-          next TRY;
-          }
-        }
-
-      # find path (mod is score modifier, or undef if no path exists)
-      ($mod, @coord) = $self->_trace_path( $cells, $src, $dst );
-      }
-
-    if (!defined $mod)
-      {
-      # rewind stack
-      if (ref($action) ne 'ARRAY')
-        { 
-        print STDERR "# Step $step: Rewind stack for $action->{name}\n" if $self->{debug};
-
-        # free cell area (XXX TODO: nodes that occupy more than one area)
-        delete $cells->{"$action->{x},$action->{y}"};
-        # mark node as tobeplaced
-        $action->{x} = undef;
-        $action->{y} = undef;
-        }
-      else
-        {
-        print STDERR "# Step $step: Rewind stack for path from $src->{name} to $dst->{name}\n" if $self->{debug};
-        # free cell area
-        for (my $i = 0; $i < @coord; $i += 2)
-          {
-          delete $cells->{$coord[$i] . ',' . $coord[$i+1]};
-          }
-        }
-      unshift @todo, $action;
-      next TRY;
-      }
-
-    $score += $mod;
-    print STDERR "# Step $step: Score is $score\n" if $self->{debug};
-    }
-
-  $self->{score} = $score;			# overall score
-
-  # all things on the stack were done
-
-  $self;
-  }
-
-sub _place_node
-  {
-  my ($self, $cells, $node) = @_;
-
-  print STDERR "# Finding place for $node->{name}\n" if $self->{debug};
-
-  # try to place node at upper left corner
-  my $x = 0;
-  my $y = 0;
-  if (!exists $cells->{"$x,$y"})
-    {
-    $cells->{"$x,$y"} = $node;
-    $node->{x} = $x;
-    $node->{y} = $y;
-    return 0;
-    }
-        
-  # try to place node to the right of predecessor
-  my @pre = $node->predecessors();
-  if (@pre == 1)
-    {
-    my $x = $pre[0]->{x} + 2;
-    my $y = $pre[0]->{y};
-
-    if (!exists $cells->{"$x,$y"})
-      {
-      print STDERR "# Placing $node->{name} at $x,$y\n" if $self->{debug};
-      $cells->{"$x,$y"} = $node;
-      $node->{x} = $x;
-      $node->{y} = $y;
-      return 0;
-      }
-    }
-
-  # XXX TODO: 100 => 100000 and limit tries
-  # try to place the node near the one it is linked to
-  while (!defined $node->{x})
-    {
-    my $x = int(rand(100));
-    my $y = int(rand(100));
-    if (!exists $cells->{"$x,$y"})
-      {
-      $cells->{"$x,$y"} = $node;
-      $node->{x} = $x;
-      $node->{y} = $y;
-      }
-    }
-  0;					# success 
-  }
-
-sub _trace_path
-  {
-  my ($self, $cells, $src, $dst) = @_;
-
-  print STDERR "# Finding path from $src->{name} to $dst->{name}\n" if $self->{debug};
-  # find a free way from $src to $dst (both need to be placed)
-  my $mod = 0;
-  my @coord = ();
-
-#  print STDERR "src: $src->{x}, $src->{y} dst: $dst->{x}, $dst->{y}\n";
-
-  if ($src->{x} == $dst->{x}-2 && $src->{y} == $dst->{y})
-    {
-#    print STDERR "# Found simple path from $src->{name} right to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x} + 1; my $y = $src->{y};
-    push @coord, $x, $y;
-    print STDERR "# Putting --> at cell $x,$y\n" if $self->{debug};
-
-    my $path = $self->_gen_edge_right( $src, $dst);
-
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 5;				# straight +1, right +3, short +1
-    }
-  elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} - 2)
-    {
-#    print STDERR "# Found simple path from $src->{name} down to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x}; my $y = $src->{y} + 1;
-    push @coord, $x, $y;
-    print STDERR "# Putting v at cell $x,$y\n" if $self->{debug};
-
-    my $path = $self->_gen_edge_down( $src, $dst);
-
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 4;				# straight +1, down +2, short +1
-    }
-  elsif ($src->{x} == $dst->{x}+2 && $src->{y} == $dst->{y})
-    {
-#    print STDERR "# Found simple path from $src->{name} down to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x}; my $y = $src->{y} + 1;
-    push @coord, $x, $y;
-    print STDERR "# Putting <-- at cell $x,$y\n" if $self->{debug};
-
-    my $path = $self->_gen_edge_left( $src, $dst);
-
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 3;				# straight +1, left +1, short +1
-    }
-  elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} + 2)
-    {
-#    print STDERR "# Found simple path from $src->{name} up to $dst->{name}\n";
-    # simple case
-    my $x = $src->{x}; my $y = $src->{y} - 1;
-    push @coord, $x, $y;
-    print STDERR "# Putting v at cell $x,$y\n" if $self->{debug};
-
-    my $path = $self->_gen_edge_up( $src, $dst);
-
-    $cells->{"$x,$y"} = $path;
-    $path->{x} = $x;
-    $path->{y} = $y;
-    $mod = 3;				# straight +1, up +1, short +1
-    }
-  else
-    {
-    # XXX TODO
-    print STDERR "# Unable to find path from $src->{name} ($src->{x},$src->{y}) to $dst->{name} ($dst->{x},$dst->{y})\n";
-    sleep(1);
-    return undef;
-    }
-  ($mod,@coord);
-  }
-
-sub _gen_edge_right
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  Graph::Simple::Node->new(
-    name => "\n $s->{style}", border => 'none', class => 'edge', w => 5, 
-    );
-  }
-
-sub _gen_edge_down
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  # Downwards we can only do "|" (line), "| " (dashed) or "." (dotted)
-  # e.g. no double line
-
-  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
-  my $style2 = $style;
-  $style2 = ' ' if $s->{style} =~ /- /;
-
-  Graph::Simple::Node->new(
-    name => "  $style\n  $style2\n  v",
-    border => 'none', class => 'edge', w => 5, h => 3
-    );
-  }
-
-sub _gen_edge_up
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  # Upwards we can only do "|" (line), "| " (dashed) or "." (dotted)
-  # e.g. no double line
-
-  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
-  my $style2 = $style;
-  $style2 = ' ' if $s->{style} =~ /- /;
-
-  Graph::Simple::Node->new(
-    name => "  ^\n  $style2\n  $style\n",
-    border => 'none', class => 'edge', w => 5, h => 3
-    );
-  }
-
-sub _gen_edge_left
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  $s = s/>//;
-  Graph::Simple::Node->new(
-    name => "\n <$s", border => 'none', class => 'edge', w => 5, w => 3,
-    );
-  }
 
 sub add_edge
   {
@@ -900,13 +551,9 @@ charts, network diagrams, or hirarchy trees.
 Apart from driving the module with Perl code, you can also use
 C<Graph::Simple::Parser> to parse simple graph descriptions like:
 
-=for graph
-
 	[ Bonn ]      --> [ Berlin ]
 	[ Frankfurt ] <=> [ Dresden ]
 	[ Bonn ]      --> [ Frankfurt ]
-
-=end
 
 See L<Examples> for how this might be rendered.
 
@@ -935,18 +582,19 @@ HTML tables with CSS making everything "pretty".
 The following examples are given in the simple text format that is understood
 by L<Graph::Simple::Parser>.
 
-If you only see ASCII output in the following examples, then your pod2html
-converter did not recognize the special graph paragraphs.
+If you see no ASCII/HTML graph output in the following examples, then your
+C<pod2html> or C<pod2txt> converter did not recognize the special graph
+paragraphs.
 
-You can use the converter in C<examples/pod2html> in this distribution to
-generate a pretty HTML document with nice graph "drawings" from this document.
+You can use the converters in C<examples/pod/> in this distribution to
+generate a pretty page with nice graph "drawings" from this document.
 
 =head2 One node
 
 The most simple graph (apart from the empty one :) is a graph consisting of
 only one node:
 
-=for graph
+=begin graph
 
 	[ Dresden ]
 
@@ -956,7 +604,7 @@ only one node:
 
 A simple graph consisting of two nodes, linked together by a directed edge:
 
-=for graph
+=begin graph
 
 	[ Bonn ] -> [ Berlin ]
 
@@ -966,7 +614,7 @@ A simple graph consisting of two nodes, linked together by a directed edge:
 
 A graph consisting of three nodes, and both are linked from the first:
 
-=for graph
+=begin graph
 
 	[ Bonn ] -> [ Berlin ]
 	[ Bonn ] -> [ Hamburg ]
@@ -978,10 +626,23 @@ A graph consisting of three nodes, and both are linked from the first:
 A graph consisting of two seperate parts, both of them not connected
 to each other:
 
-=for graph
+=begin graph
 
 	[ Bonn ] -> [ Berlin ]
 	[ Freiburg ] -> [ Hamburg ]
+
+=end
+
+=head2 Three nodes, interlinked
+
+A graph consisting of three nodes, and two of the are connected from
+the first node:
+
+=begin graph
+
+	[ Bonn ] -> [ Berlin ]
+	[ Berlin ] -> [ Hamburg ]
+	[ Bonn ] -> [ Hamburg ]
 
 =end
 
@@ -1155,7 +816,7 @@ Hopefully further development will lift these.
 =item No crossing
 
 Currently edges (paths from node to node) cannot cross each other. This limits
-kind of graphs you can do quite seriously.
+the kind of graphs you can do quite seriously.
 
 =item No bends
 
@@ -1189,6 +850,8 @@ Currently it is not possible that an edge joins another edge like this:
 	  +-----------------------> | Potsdam |
 	             		    +---------+
 
+This means each node can have at most 4 edges leading to or from it.
+
 =item No long edges
 
 Edges are always exactly one cell long. This seriously hampers node
@@ -1212,6 +875,15 @@ Currently the node placement is dependend on the order the nodes were
 inserted into the graph. In reality it should start with nodes having
 no or little incoming edges and then progress to nodes with more 
 incoming edges.
+
+=head2 Grouping
+
+Grouping of nodes is not yet implemented.
+
+=head2 Recursion
+
+Theoretically, a node could contain an entire second graph. Practially,
+this is not yet implemented.
 
 =head1 LICENSE
 

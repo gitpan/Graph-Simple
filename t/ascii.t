@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 16;
+   plan tests => 19;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -32,6 +32,8 @@ foreach my $f (@files)
   my $graph = $parser->from_text($txt);		# reuse parser object
 
   $txt =~ s/\n\s+/\n/;				# remove trailing whitespace
+  $txt =~ s/(^|\n)\s*#.*\n//g;			# remove comments
+  $txt =~ s/\n\n/\n/g;				# remove empty lines
  
   $f =~ /^(\d+)/;
   my $nodes = $1;
@@ -40,15 +42,14 @@ foreach my $f (@files)
 
   my $ascii = $graph->as_ascii();
   my $out = readfile("out/$f");
+  $out =~ s/(^|\n)\s*#.*\n//g;			# remove comments
+  $out =~ s/\n\n/\n/g;				# remove empty lines
 
 #  print "txt: $txt\n";
 # print "ascii: $ascii\n";
 # print "should: $out\n";
 
   is ($ascii, $out, "from $f");
-
-  # XXX TODO
-  #$txt =~ s/[=-]+>/-->/g;			# normalize arrows
 
   # input might have whitespace at front, remove it because output doesn't
   $txt =~ s/(^|\n)\s+/$1/g;

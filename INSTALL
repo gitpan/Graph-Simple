@@ -4,9 +4,29 @@ Graph-Simple
 
 To install this module type the following:
 
+Untar the package:
+
+	tar -xzf Graph-Simple-0.05.tar.gz
+
+Change into the directory:
+
+	chdir Graph-Simple-0.05/
+
+Verify the package:
+
+	cpansign --verify
+
+If the package fails to verify, do NOT run Makefile.pl nor install it and
+notify me immidiately. YOUR SYSTEM MIGHT GET COMPROMISED! 
+
+When the package verified okay, then proceed:
+
         perl Makefile.PL
         make
         make test
+
+If all tests pass, install the package:
+
         sudo make install
 
 Dependencies

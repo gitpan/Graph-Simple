@@ -13,7 +13,7 @@ use Graph::Simple;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 sub new
   {
@@ -84,26 +84,36 @@ sub from_text
   my $e = 'Graph::Simple::Edge';
   my $nr = -1;
 
-  # rgeexp for the different parts
+  # regexps for the different parts
   my $qr_node = _match_node();
   my $qr_attr = _match_attributes();
   my $qr_oatr = _match_optional_attributes();
   my $qr_edge = _match_edge();
+  my $qr_comma = _match_comma();
+
+  my $qr_group_start = _match_group_start();
+  my $qr_group_end   = _match_group_end();
 
   # for "[ 1 ] -> [ 2 ]" we push "2" on the stack and when we encounter
   # " -> [ 3 ]" treat the stack as a node-list left of "3"
+  # in addition, for " [ 1 ], [ 2 ] => [ 3 ]", the leftstack will contain
+  # "1" and "2" when we encounter "3"
   my @stack = ();
 
+  my @group_stack = ();	# all the (nested) groups we are currently in
   my $backbuffer = '';	# left over fragments to be combined with next line
+
+  ###########################################################################
+  # main parsing loop
+
   LINE:
   while (@lines > 0 || $backbuffer ne '')
     {
-    $nr++;
-
     my $curline = '';
     
     if (@lines > 0)
       {
+      $nr++;
       $curline = shift @lines;
       next if $curline =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
       next if $curline =~ /^\s*\z/;	# empty line?
@@ -123,9 +133,11 @@ sub from_text
     $line =~ s/^\s+//;
     $line =~ s/\s+\z//;
 
+    #print STDERR "# at line '$line' stack: ", join(",", @stack),"\n";
+
     # node { color: red; } or 
     # node.graph { color: red; }
-
+    # XXX TODO: group-label, edge-label
     if ($line =~ /^(node|graph|edge|group)(\.\w+)?$qr_attr\z/)
       {
       my $type = $1 || '';
@@ -136,86 +148,72 @@ sub from_text
 
       $graph->set_attributes ( "$type$class", $att);
 
+      # forget stack
       @stack = ();
-      }
-    # [ Berlin ]
-    elsif ($line =~ /^$qr_node\z/)
-      {
-      my $n1 = $1;
-      # strip trailing spaces
-      $n1 =~ s/\s*\z//;
-      # unquote special chars
-      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
-      my $node_a = $graph->node($n1);
-      if (!defined $node_a)
+      # and current line
+      $line = '';
+      }
+    # ( group start [
+    elsif ($line =~ /^$qr_group_start/)
+      {
+      my $gn = $1 || '';			# group name
+
+      # strip trailing spaces
+#      $gn =~ s/\s*\z//;
+      # unquote special chars
+      $gn =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+
+      my $group = $graph->group ($gn);
+      if (!defined $group)
         {
-        $node_a = $c->new( { name => $n1 } ); 
-        $graph->add_node ( $node_a );
+        $group = Graph::Simple::Group->new( { name => $gn } );
+        $graph->add_group ($group);
         }
-      @stack = ($node_a);
+      push @group_stack, $group;
+
+      $line =~ s/^$qr_group_start/\[/;
+      }
+    # ) # group end
+    elsif ($line =~ /^$qr_group_end/)
+      {
+
+      if (@group_stack == 0)
+        {
+        $self->error("Found unexpected group end at line $nr");
+        return undef;
+        }
+      pop @group_stack;
+
+      $line =~ s/^$qr_group_end//;
       }
     # [ Berlin ] { color: red; }
-    elsif ($line =~ /^$qr_node$qr_attr\z/)
+    elsif ($line =~ /^$qr_node$qr_oatr/)
       {
       my $n1 = $1;
       my $a1 = $self->_parse_attributes($2||'');
-      # strip trailing spaces
-      $n1 =~ s/\s*\z//;
-      # unquote special chars
-      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
-      my $node_a = $graph->node($n1);
-      if (!defined $node_a)
-        {
-        $node_a = $c->new( { name => $n1 } ); 
-        $graph->add_node ( $node_a );
-        }
+      my $node_a = $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
-      $node_a->set_attributes($a1);
       @stack = ($node_a);
+
+      $line =~ s/^$qr_node$qr_oatr//;
       }
-    # [ Berlin ] -> [ Kassel ]
-    elsif ($line =~ /^$qr_node$qr_oatr$qr_edge$qr_node$qr_oatr/)
+    # , [ Berlin ] { color: red; }
+    elsif ($line =~ /^$qr_comma$qr_node$qr_oatr/)
       {
-      my $n1 = $1; 				# left node name
-      my $n3 = $4; my $en = $5 || '';		# edge style and label
-      my $n6 = $8;				# right node name
-      my $a1 = $2 || ''; my $a2 = $9 || '';	# left/right node attributes
+      my $n1 = $1;
+      my $a1 = $self->_parse_attributes($2||'');
 
-      my $att1 = $self->_parse_attributes($a1);
-      my $att2 = $self->_parse_attributes($a2);
+      my $node_a = $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
-      # strip trailing spaces
-      $n1 =~ s/\s*\z//;
-      $n6 =~ s/\s*\z//;
-      $en =~ s/\s*\z//;
-     
-      # unquote special chars
-      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
-      $n6 =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+      @stack = ($node_a);
 
-      my $node_a = $graph->node($n1);
-      my $node_b = $graph->node($n6);
-
-      $node_a = $c->new( { name => $n1 } ) unless defined $node_a;
-      $node_b = $c->new( { name => $n6 } ) unless defined $node_b;
-
-      $node_a->set_attributes ($att1);
-      $node_b->set_attributes ($att2);
-
-      my $style = '--';	# default
-      $style = '==' if $n3 =~ /^=+\z/; 
-      $style = '..' if $n3 =~ /^\.+\z/; 
-      $style = '- ' if $n3 =~ /^(- )+\z/; 
-      # XXX TODO: look at $n2 and $n4 for left/right direction
-      my $edge = $e->new( { style => $style . '>', name => $en } );
-      $graph->add_edge ( $node_a, $node_b, $edge );
-      @stack = ($node_b);
-      $line =~ s/^$qr_node$qr_oatr$qr_edge$qr_node$qr_oatr//;
-      $backbuffer = $line;
-      next LINE;
+      $line =~ s/^$qr_comma$qr_node$qr_oatr//;
       }
+    # Things like "[ Node ]" will be consumed before, so we do not need a case
+    # for "[ A ] -> [ B ]".
+
     # node chain continued like "-> [ Kassel ]"
     elsif (@stack != 0 && $line =~ /^$qr_edge$qr_node$qr_oatr/)
       {
@@ -224,49 +222,38 @@ sub from_text
       my $a1 = $self->_parse_attributes($7||'');	# node attributes
 
       # strip trailing spaces
-      $n =~ s/\s*\z//;
       $en =~ s/\s*\z//;
-      # unquote special chars
-      $n =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
-      my $node_b = $graph->node($n);
-      $node_b = $c->new( { name => $n } ) unless defined $node_b;
-
-      my $att1 = $self->_parse_attributes($a1);
-      $node_b->set_attributes ($att1);
+      my $node_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
       
       my $style = '--';	# default
       $style = '==' if $ed =~ /^=+\z/; 
       $style = '..' if $ed =~ /^\.+\z/; 
       $style = '- ' if $ed =~ /^(- )+\z/; 
 
-      my $edge = $e->new( { style => $style . '>', name => $en } );
-
       # add edges for all nodes in the left list
-      foreach my $node_a (@stack)
+      foreach my $node (@stack)
         {
-        $graph->add_edge ( $node_a, $node_b, $edge );
+        my $edge = $e->new( { style => $style, name => $en } );
+#        print STDERR "# continued: edge from $node->{name} => $node_b->{name}\n";
+        $graph->add_edge ( $node, $node_b, $edge );
         }
+#      print STDERR "# handled stack\n";
  
       # remember the right side
       @stack = ($node_b);
 
       $line =~ s/^$qr_edge$qr_node$qr_oatr//;
-      $backbuffer = $line;
-      next LINE;
       }
     else
       {
       # couldn't handle that fragement, so accumulate it
       last LINE if @lines == 0;			# but not if it is the very last
 
-      $backbuffer .= $curline;
-      @stack = ();
-      next LINE;
+      $line = $backbuffer . $curline;
       }
 
-    # for all handled cases
-    $backbuffer = '';
+    $backbuffer = $line;
     }
 
    if ($backbuffer ne '')
@@ -276,6 +263,40 @@ sub from_text
     }
 
   $graph;
+  }
+
+sub _new_node
+  {
+  # create a new node unless it doesn't already exist. If the group stack
+  # contains entries, the new node appears first in this/these group(s), so
+  # add it to these groups.
+  my ($self, $graph, $name, $group_stack, $att) = @_;
+      
+  # strip trailing spaces
+  $name =~ s/\s*\z//;
+  # unquote special chars
+  $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+
+  my $node = $graph->node($name);
+
+  if (!defined $node)
+    {
+    $node = Graph::Simple::Node->new( { name => $name } );
+    $graph->add_node($node); 
+    }
+
+  $node->add_to_groups(@$group_stack) if @$group_stack != 0;
+
+  $node->set_attributes ($att);
+
+  $node;
+  }
+
+sub _match_comma
+  {
+  # return a regexp that matches something like " , " like in:
+  # "[ Bonn ], [ Berlin ] => [ Hamburg ]"
+  qr/\s*,\s*/;
   }
 
 sub _match_attributes
@@ -297,6 +318,19 @@ sub _match_node
   # return a regexp that matches something like " [ bonn ]" and returns
   # the inner text without the [] (might leave some spaces)
   qr/\s*\[\s*([^\]]+?[^\\])\]/;
+  }
+
+sub _match_group_start
+  {
+  # return a regexp that matches something like " ( group [" and returns
+  # the text between "(" and "["
+  qr/\s*\(\s*([^\[]+?)\s*\[/;
+  }
+
+sub _match_group_end
+  {
+  # return a regexp that matches something like " )".
+  qr/\s*\)\s*/;
   }
 
 sub _match_edge
@@ -329,13 +363,9 @@ sub _parse_attributes
     {
     $self->error ("Error in atttribute: '$a' doesn't look valid to me.")
       and return undef 
-    unless ($a =~ /^[^:]+:[^:]+\z/);	# name: value
+    unless ($a =~ /^\s*([^:]+?)\s*:\s*(.+?)\s*\z/);	# "name: value"
 
-    my ($name, $val) = split /\s*:\s*/, $a;
-    $name =~ s/^\s+//;			# strip space at front
-    $name =~ s/\s+$//;			# strip space at end
-    $val =~ s/^\s+//;			# strip space at front
-    $val =~ s/\s+$//;			# strip space at end
+    my ($name, $val) = ($1,$2);
 
     $att->{$name} = $val;
     }
@@ -456,13 +486,13 @@ with L<error()>.
 
 	my $error = $parser->error();
 
-Returns the last error.
+Returns the last error, or the empty string if no error occured.
 
 =head2 _parse_attributes()
 
 	my $attributes = $parser->_parse_attributes( $txt );
   
-Takes a text like this:
+B<Internal usage only>. Takes a text like this:
 
 	attribute: value;  attribute2 : value2;
 

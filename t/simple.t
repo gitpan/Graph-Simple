@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 13;
+   plan tests => 23;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -23,7 +23,10 @@ can_ok ("Graph::Simple", qw/
   attribute
   score
   id
+  group groups add_group del_group
   /);
+
+use Graph::Simple::Group;
 
 #############################################################################
 # layout tests
@@ -73,8 +76,8 @@ $graph->add_edge( $node5, $node6 );
 is ($graph->attribute('node', 'background'), 'white', 
 	'node { background: white }');
 
-is ($graph->attribute('graph', 'border'), '1px solid black', 
-	'graph { border: 1px solid black }');
+is ($graph->attribute('graph', 'border'), 'none', 
+	'graph { border: none; }');
 
 $graph->set_attributes ('graph', { color => 'white', background => 'red' });
 
@@ -87,23 +90,31 @@ is ($graph->css(), <<HERE
 .edge {
   background: inherit;
   border: none;
-  font-family: courier-new, courier, monospaced, sans-serif;
+  font-family: monospaced, courier-new, courier, sans-serif;
+  letter-spacing: -0.36em;
+  line-height: 0.7em;
   margin: 0.1em;
   padding: 0.2em;
+  padding-right: 0.4em;
   text-align: center;
 }
 .graph {
   background: red;
-  border: 1px solid black;
+  border: none;
   color: white;
   margin: 0.5em;
   padding: 0.7em;
+}
+.group {
+  border: 1px dashed black;
 }
 .node {
   background: white;
   border: 1px solid black;
   margin: 0.1em;
   padding: 0.2em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
   text-align: center;
 }
 HERE
@@ -120,23 +131,31 @@ is ($graph->css(), <<HERE
 .edge42 {
   background: inherit;
   border: none;
-  font-family: courier-new, courier, monospaced, sans-serif;
+  font-family: monospaced, courier-new, courier, sans-serif;
+  letter-spacing: -0.36em;
+  line-height: 0.7em;
   margin: 0.1em;
   padding: 0.2em;
+  padding-right: 0.4em;
   text-align: center;
 }
 .graph42 {
   background: red;
-  border: 1px solid black;
+  border: none;
   color: white;
   margin: 0.5em;
   padding: 0.7em;
+}
+.group42 {
+  border: 1px dashed black;
 }
 .node42 {
   background: white;
   border: 1px solid black;
   margin: 0.1em;
   padding: 0.2em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
   text-align: center;
 }
 HERE
@@ -152,23 +171,31 @@ is ($graph->css(), <<HERE
 .edge42 {
   background: inherit;
   border: none;
-  font-family: courier-new, courier, monospaced, sans-serif;
+  font-family: monospaced, courier-new, courier, sans-serif;
+  letter-spacing: -0.36em;
+  line-height: 0.7em;
   margin: 0.1em;
   padding: 0.2em;
+  padding-right: 0.4em;
   text-align: center;
 }
 .graph42 {
   background: red;
-  border: 1px solid black;
+  border: none;
   color: white;
   margin: 0.5em;
   padding: 0.7em;
+}
+.group42 {
+  border: 1px dashed black;
 }
 .node42,.node-cities42 {
   background: white;
   border: 1px solid black;
   margin: 0.1em;
   padding: 0.2em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
   text-align: center;
 }
 .node-cities42 {
@@ -176,5 +203,106 @@ is ($graph->css(), <<HERE
 }
 HERE
 , 'css() with sub-classes');
+
+#############################################################################
+# group tests
+
+is ($graph->groups(), 0, 'no groups yet');
+
+is ($graph->group('foo'), undef, 'no groups yet');
+is ($graph->groups(), 0, 'no groups yet');
+
+my $group = Graph::Simple::Group->new( { name => 'Cities' } );
+$graph->add_group($group);
+
+is ($graph->group('Cities'), $group, "group 'cities'");
+is ($graph->groups(), 1, 'one group');
+is ($graph->group('cities'), undef, 'no group');
+is ($graph->groups(), 1, 'one group');
+
+is ($graph->as_txt(), <<HERE
+graph {
+  color: white;
+  background: red;
+}
+node.cities { color: #808080; }
+
+( Cities
+)
+
+[ Bonn ] --> [ Berlin ]
+[ Berlin ] --> [ Potsdam ]
+[ Berlin ] --> [ Frankfurt ]
+[ Frankfurt ] --> [ Dresden ]
+[ Potsdam ] --> [ Cottbus ]
+HERE
+, 'with empty group Cities'); 
+
+$node->add_to_groups($group);
+
+is ($graph->as_txt(), <<HERE
+graph {
+  color: white;
+  background: red;
+}
+node.cities { color: #808080; }
+
+( Cities
+  [ Bonn ]
+)
+
+[ Bonn ] --> [ Berlin ]
+[ Berlin ] --> [ Potsdam ]
+[ Berlin ] --> [ Frankfurt ]
+[ Frankfurt ] --> [ Dresden ]
+[ Potsdam ] --> [ Cottbus ]
+HERE
+, 'with empty group Cities'); 
+
+
+#############################################################################
+# title/link/autolink/autotitle/linkbase not in CSS
+
+$graph->set_attributes ('node', 
+  { link => 123, title => 123, autolink => 'name', autotitle => 'name' } );
+$graph->set_attributes ('graph', { linkbase => '123/' } );
+
+is ($graph->css(), <<HERE
+.edge42 {
+  background: inherit;
+  border: none;
+  font-family: monospaced, courier-new, courier, sans-serif;
+  letter-spacing: -0.36em;
+  line-height: 0.7em;
+  margin: 0.1em;
+  padding: 0.2em;
+  padding-right: 0.4em;
+  text-align: center;
+}
+.graph42 {
+  background: red;
+  border: none;
+  color: white;
+  margin: 0.5em;
+  padding: 0.7em;
+}
+.group42 {
+  border: 1px dashed black;
+}
+.node42,.node-cities42 {
+  background: white;
+  border: 1px solid black;
+  margin: 0.1em;
+  padding: 0.2em;
+  padding-left: 0.3em;
+  padding-right: 0.3em;
+  text-align: center;
+}
+.node-cities42 {
+  color: #808080;
+}
+HERE
+, 'css() with non-css attributes link|title|linkbase etc');
+
 
 

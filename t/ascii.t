@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 19;
+   plan tests => 22;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -51,8 +51,16 @@ foreach my $f (@files)
 
   is ($ascii, $out, "from $f");
 
-  # input might have whitespace at front, remove it because output doesn't
-  $txt =~ s/(^|\n)\s+/$1/g;
+  # if the txt output differes, read it in
+  if (-f "txt/$f")
+    {
+    $txt = readfile("txt/$f");
+    }
+  else
+    {
+    # input might have whitespace at front, remove it because output doesn't
+    $txt =~ s/(^|\n)\s+/$1/g;
+    }
 
   is ($graph->as_txt(), $txt, "$f as_txt");
 

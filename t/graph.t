@@ -44,7 +44,7 @@ for my $e (@E)
   $en .= $e->{style} . '.';
   }
 
-is ($en, '-->.', 'edges() in list context');
+is ($en, '--.', 'edges() in list context');
 
 #############################################################################
 
@@ -85,6 +85,7 @@ $bonn->set_attribute('class', 'cities');
 
 is ( $graph->as_txt(), <<HERE
 [ Bonn ] { class: cities; }
+
 [ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
@@ -100,6 +101,7 @@ $berlin->set_attribute('color', 'blue');
 is ( $graph->as_txt(), <<HERE
 [ Berlin ] { color: blue; }
 [ Bonn ] { border: none; color: red; class: cities; }
+
 [ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]
@@ -107,16 +109,18 @@ HERE
 , 'as_txt() for 3 nodes with 2 edges');
 
 
-$graph->set_attribute('graph', 'border', 'none');
+$graph->set_attribute('graph', 'border', '1px dashed');
 $graph->set_attribute('edge', 'border', 'blue solid 1px');
 
 # graph/node/edge attributes come first
 
 is ( $graph->as_txt(), <<HERE
 edge { border: blue solid 1px; }
-graph { border: none; }
+graph { border: 1px dashed; }
+
 [ Berlin ] { color: blue; }
 [ Bonn ] { border: none; color: red; class: cities; }
+
 [ Bonn ] --> [ Berlin ]
 [ Frankfurt a. M. ] --> [ Bonn ]
 [ Schweinfurt ] --> [ Bonn ]

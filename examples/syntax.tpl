@@ -14,20 +14,15 @@
 
 <a name="top"></a>
 
-<table border=0 cellpadding=0 cellspacing=0 width=100%>
-
-<tr>
-
- <td valign="top">
-  <div class="menu">
+<div class="menu">
   <p class="menu"><a class="menu" href="index.html" title="Back to the main page">Main</a></p>
-  </div>
- </td>
- <td>
+</div>
+
+<div class="right">
 
 <h1>&lt;graph&gt;-Plugin for Wikimedia</h1>
 
-<h2>Graph-Simple Test page</h2>
+<h2>##NAME##</h2>
 
 <div class="text">
 
@@ -47,14 +42,13 @@ from the parsed input, as well the automatically generated HTML+CSS code.
 </p>
 
 <ul>
-  <li>The HTML does not yet have "pretty" edges. This will be fixed later.
-  <li>Also, the limitations in
+  <li>The limitations in
 	<a href="http://search.cpan.org/~tels/Graph-Simple/lib/Graph/Simple.pm#LIMITATIONS">Graph::Simple</a> apply.
 </ul>
 
 </div>
 
-<h2>Working Testcases:</h2>
+<h2>Table of Contents:</h2>
 
 <div class="text">
 ##TOC##
@@ -70,6 +64,8 @@ This page was automatically created at <strong><small>##time##</small></strong> 
 Contact <a href="/mail.html">Tels</a> for help.
 </p>
 
-</td></tr></table>
+</div>
+
+</div> <!-- right cell ends here -->
 
 </body></html>

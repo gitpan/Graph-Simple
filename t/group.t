@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 10;
+   plan tests => 11;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Group") or die($@);
@@ -31,16 +31,24 @@ is ($group->error(), '', 'no error yet');
 
 is ($group->id(), 0, 'id == 0');
 
-is ($group->as_txt(), 'Group #0 ( )', 'as_txt (empty group)');
+is ($group->as_txt(), "( Group \\#0\n)\n", 'as_txt (empty group)');
 is (scalar $group->nodes(), 0, 'no nodes in group');
 
-my $first = Graph::Simple::Node->new();
-my $second = Graph::Simple::Node->new();
+my $first = Graph::Simple::Node->new( name => 'first' );
+my $second = Graph::Simple::Node->new( name => 'second' );
 
 $group->add_node($first);
 is (scalar $group->nodes(), 1, 'one node in group');
 
 $group->add_nodes($first, $second);
 is (scalar $group->nodes(), 2, 'two nodes in group');
+
+is ($group->as_txt(), <<HERE
+( Group \\#0
+  [ first ]
+  [ second ]
+)
+HERE
+, 'as_txt (group with two nodes)');
 
 

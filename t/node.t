@@ -3,7 +3,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 51;
+   plan tests => 61;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Node") or die($@);
@@ -24,13 +24,13 @@ can_ok ("Graph::Simple::Node", qw/
   pos
   x
   y
-  id
   class
   set_attribute
   set_attributes
   attribute
   attributes_as_txt
-  as_txt_node
+  as_pure_txt
+  group groups add_to_groups
   /);
 
 #############################################################################
@@ -43,7 +43,8 @@ is ($node->error(), '', 'no error yet');
 
 is ($node->x(), 0, 'x == 0');
 is ($node->y(), 0, 'x == 0');
-is ($node->id(), 0, 'id == 0');
+is ($node->label(), 'Node #0', 'label');
+is ($node->name(), 'Node #0', 'name');
 is (join(",", $node->pos()), "0,0", 'pos = 0,0');
 is ($node->width(), undef, 'w = undef');	# no graph => thus no width yet
 is ($node->height(), 3, 'h = 3');
@@ -76,21 +77,21 @@ is ($other->predecessors(), 1, '1 incoming');
 # as_txt/as_html
 
 is ($node->as_txt(), '[ Node \#0 ]', 'as_txt');
-is ($node->as_html(), "<td class='node'> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node'>Node #0</td>\n",
  'as_html');
 
 # quoting of ()
 $node->{name} = 'Frankfurt (Oder)';
 
 is ($node->as_txt(), '[ Frankfurt \(Oder\) ]', 'as_txt');
-is ($node->as_html(), "<td class='node'> Frankfurt (Oder) </td>\n",
+is ($node->as_html(), "<td class='node'>Frankfurt (Oder)</td>\n",
  'as_html');
 
 # quoting of []
 $node->{name} = 'Frankfurt [ { #1 } ]';
 
 is ($node->as_txt(), '[ Frankfurt \[ \{ \#1 \} \] ]', 'as_txt');
-is ($node->as_html(), "<td class='node'> Frankfurt [ { #1 } ] </td>\n",
+is ($node->as_html(), "<td class='node'>Frankfurt [ { #1 } ]</td>\n",
  'as_html');
 
 # reset name
@@ -102,27 +103,27 @@ $node->{name} = 'Node #0';
 $node->{class} = 'node.cities';
 
 is ($node->as_txt(), '[ Node \#0 ] { class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities'> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-cities'>Node #0</td>\n",
  'as_html');
-is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
+is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_txt_node');
 
 $node->set_attribute ( 'color', 'blue' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities' style=\"color: blue\"> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-cities' style=\"color: blue\">Node #0</td>\n",
  'as_html');
-is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
+is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
 
 $node->set_attribute ( 'padding', '1em' );
 is ($node->as_txt(), '[ Node \#0 ] { color: blue; padding: 1em; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities' style=\"color: blue; padding: 1em\"> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-cities' style=\"color: blue; padding: 1em\">Node #0</td>\n",
  'as_html');
-is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
+is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
 
 $node->set_attributes ( { padding => '2em', color => 'purple' } );
 is ($node->as_txt(), '[ Node \#0 ] { color: purple; padding: 2em; class: cities; }', 'as_txt');
-is ($node->as_html(), "<td class='node-cities' style=\"color: purple; padding: 2em\"> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-cities' style=\"color: purple; padding: 2em\">Node #0</td>\n",
  'as_html');
-is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
+is ($node->as_pure_txt(), '[ Node \#0 ]', 'as_pure_txt');
 
 #############################################################################
 # set_attributes(class => foo)
@@ -130,13 +131,13 @@ is ($node->as_txt_node(), '[ Node \#0 ]', 'as_txt_node');
 $node->set_attributes ( { class => 'foo', color => 'octarine' } );
 
 is ($node->as_txt(), '[ Node \#0 ] { color: octarine; padding: 2em; class: foo; }', 'as_txt');
-is ($node->as_html(), "<td class='node-foo' style=\"color: octarine; padding: 2em\"> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-foo' style=\"color: octarine; padding: 2em\">Node #0</td>\n",
  'as_html');
 
 $node->set_attribute ( 'class', 'bar' );
 
 is ($node->as_txt(), '[ Node \#0 ] { color: octarine; padding: 2em; class: bar; }', 'as_txt');
-is ($node->as_html(), "<td class='node-bar' style=\"color: octarine; padding: 2em\"> Node #0 </td>\n",
+is ($node->as_html(), "<td class='node-bar' style=\"color: octarine; padding: 2em\">Node #0</td>\n",
  'as_html');
 
 #############################################################################
@@ -151,7 +152,7 @@ foreach my $l (
   $node->set_attribute('link', $l);
 
   is ($node->as_txt(), 
-    '[ Node \#0 ] { color: octarine; link: http%3a//bloodgate.com/; padding: 2em; class: bar; }', 'as_txt');
+    '[ Node \#0 ] { color: octarine; link: http://bloodgate.com/; padding: 2em; class: bar; }', 'as_txt');
   is ($node->as_html(), 
     "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='http://bloodgate.com/'>Node #0</a> </td>\n",
     'as_html');
@@ -167,7 +168,38 @@ foreach my $l (
   is ($node->as_txt(), 
     '[ Node \#0 ] { color: octarine; link: perl/; padding: 2em; class: bar; }', 'as_txt');
   is ($node->as_html(), 
-    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='/wiki/perl/'>Node #0</a> </td>\n",
+    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='/wiki/index.php/perl/'>Node #0</a> </td>\n",
     'as_html');
   }
+
+$node->set_attribute('link', "test test&");
+  is ($node->as_txt(), 
+    '[ Node \#0 ] { color: octarine; link: test test&; padding: 2em; class: bar; }', 'as_txt');
+  is ($node->as_html(), 
+    "<td class='node-bar' style=\"color: octarine; padding: 2em\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    'as_html');
+
+$node->set_attribute('color', "\\#801010");
+  is ($node->as_txt(), 
+    '[ Node \#0 ] { color: #801010; link: test test&; padding: 2em; class: bar; }', 'as_txt');
+  is ($node->as_html(), 
+    "<td class='node-bar' style=\"color: #801010; padding: 2em\"> <a href='/wiki/index.php/test+test&'>Node #0</a> </td>\n",
+    'as_html');
+
+#############################################################################
+# group tests
+
+is ($node->groups(), 0, 'no groups yet');
+
+is ($node->group('foo'), undef, 'no groups yet');
+is ($node->groups(), 0, 'no groups yet');
+
+use Graph::Simple::Group;
+
+my $group = Graph::Simple::Group->new( { name => 'foo' } );
+$node->add_to_groups($group);
+
+is ($node->group('foo'), $group, 'group foo');
+is ($node->groups(), 1, 'one group');
+
 

@@ -4,6 +4,8 @@
  [ Hamburg ] ..> [ Altona ]	# dotted
  [ Dresden ] - > [ Bautzen ]	# dashed
  [ Schweinfurt ] <=> [ Ulm ]	# bidrectional, double
- [ Magdeburg ] <= [ Burg ]	# double, from Burg to Magdeburg
+ [ Magdeburg ] <.. [ Burg ]	# dotted, backwards
  [ Burg ] -- [ Wolfen ]		# single, bidirectional w/o arrows
  [ Wolfen ] .. [ Coswig ]	# dotted, bidirectional w/o arrows
+ [ Magdeburg ] ..> [ Aue ]	# dotted, going downwards
+

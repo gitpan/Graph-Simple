@@ -8,7 +8,7 @@ package Graph::Simple::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 #############################################################################
@@ -16,7 +16,26 @@ $VERSION = '0.03';
 package Graph::Simple;
 
 use strict;
-use Graph::Simple::Edge qw/EDGE_SHORT EDGE_HOR EDGE_VER EDGE_END/;
+use Graph::Simple::Edge;
+use Graph::Simple::Path qw/
+  EDGE_SHORT_E
+  EDGE_SHORT_W
+  EDGE_SHORT_N
+  EDGE_SHORT_S
+
+  EDGE_START_E
+  EDGE_START_W
+  EDGE_START_N
+  EDGE_START_S
+
+  EDGE_END_E
+  EDGE_END_W
+  EDGE_END_N
+  EDGE_END_S
+
+  EDGE_HOR
+  EDGE_VER
+ /;
 
 #############################################################################
 # layout the graph
@@ -57,7 +76,7 @@ sub layout
 
   my @done = ();			# stack with already done actions
   my $step = 0;
-  my $tries = 6;
+  my $tries = 4;
 
   TRY:
   while (@todo > 0)			# all actions on stack done?
@@ -288,7 +307,7 @@ sub _trace_path
    # now for each coord, allocate the cell
    if (@coords == 1)
      {
-     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y, EDGE_SHORT);
+     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y);
      }
    else
      {
@@ -300,20 +319,12 @@ sub _trace_path
        my $start;
        my ($x,$y,$type) = split /,/, shift @coords;
 
-       if ($type == EDGE_HOR)
-         {
-         $start = $self->_gen_edge_hor ( $src, $dst);
-         }
-       else
-         {
-         $start = $self->_gen_edge_ver ( $src, $dst);
-         }
-       $self->_put_edge($start, $x, $y, $edge, $type);
+       $self->_put_path($edge,$type,$x,$y);
        }
 
      my ($x,$y,$type) = split /,/, shift @coords;
      # final edge element (end piece)
-     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y, EDGE_END);
+     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y, 'endpoint');
      }
     }
   else
@@ -328,28 +339,47 @@ sub _trace_path
 
 sub _create_edge
   {
-  my ($self,$edge, $src, $dst,$dx,$dy,$x,$y,$type) = @_;
+  my ($self,$edge, $src, $dst, $dx,$dy, $x,$y, $type) = @_;
 
-   my $path;
-   # short path or endpoint:
-   $path = $self->_gen_edge_right( $src, $dst) if ($dx == 1 && $dy == 0);
-   $path = $self->_gen_edge_down ( $src, $dst) if ($dx == 0 && $dy == 1);
-   $path = $self->_gen_edge_left ( $src, $dst) if ($dx == -1 && $dy == 0);
-   $path = $self->_gen_edge_up   ( $src, $dst) if ($dx == 0 && $dy == -1);
-   print STDERR "# Found simple path from $src->{name} to $dst->{name}\n" if $self->{debug};
-   $self->_put_edge($path, $x, $y, $edge, $type);
-   }
+  my $s = $self->edge($src,$dst);
 
-sub _put_edge
+  if (!defined $type)
+    {
+    # short path
+    $type = EDGE_SHORT_E if ($dx ==  1 && $dy ==  0);
+    $type = EDGE_SHORT_S if ($dx ==  0 && $dy ==  1);
+    $type = EDGE_SHORT_W if ($dx == -1 && $dy ==  0);
+    $type = EDGE_SHORT_N if ($dx ==  0 && $dy == -1);
+    }
+  elsif ($type eq 'endpoint')
+    {
+    # endpoint
+    $type = EDGE_END_E if ($dx ==  1 && $dy ==  0);
+    $type = EDGE_END_S if ($dx ==  0 && $dy ==  1);
+    $type = EDGE_END_W if ($dx == -1 && $dy ==  0);
+    $type = EDGE_END_N if ($dx ==  0 && $dy == -1);
+    }
+  elsif ($type eq 'startpoint')
+    {
+    # startingpoint
+    $type = EDGE_START_E if ($dx ==  1 && $dy ==  0);
+    $type = EDGE_START_S if ($dx ==  0 && $dy ==  1);
+    $type = EDGE_START_W if ($dx == -1 && $dy ==  0);
+    $type = EDGE_START_N if ($dx ==  0 && $dy == -1);
+    }
+
+  print STDERR "# Found simple path from $src->{name} to $dst->{name}\n" if $self->{debug};
+  
+  $self->_put_path($edge,$type,$x,$y);
+  }
+
+sub _put_path
   {
-  my ($self, $path, $x, $y, $edge, $type) = @_;
+  my ($self,$edge,$type,$x,$y) = @_;
 
-#     print "$x,$y\n";
-  $self->{cells}->{"$x,$y"} = $path;
-  $path->{x} = $x;
-  $path->{y} = $y;
-  $path->{graph} = $self;		# register edges with ourself
-  $edge->add_cell ($x,$y, $type);
+  my $path = Graph::Simple::Path->new( type => $type, edge => $edge, x => $x, y => $y );
+  $path->{graph} = $self;		# register path elements with ourself
+  $self->{cells}->{"$x,$y"} = $path;	# store in cells
   }
 
 sub _trace_straight_path
@@ -388,101 +418,6 @@ sub _trace_straight_path
     $y += $dy;
     } while ($x != ($x1) || $y != ($y1));
   ($dx,$dy,@coords);				# return all fields of path
-  }
-
-sub _gen_edge_right
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  Graph::Simple::Node->new(
-    name => "\n $s->{style}", class => 'edge', w => 5, 
-    );
-  }
-
-sub _gen_edge_hor
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  my $st = $s->{style}; $st =~ s/[^-=\.]//g;
-
-  $st = $st x 3; $st =~ s/.\z//;
-  Graph::Simple::Node->new(
-    name => "\n$st", class => 'edge', w => 5, 
-    );
-  }
-
-sub _gen_edge_ver
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  # Downwards we can only do "|" (line), "| " (dashed) or "." (dotted)
-  # e.g. no double line
-
-  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
-  my $style2 = $style;
-  $style2 = ' ' if $s->{style} =~ /- /;
-
-  Graph::Simple::Node->new(
-    name => "  $style\n  $style2\n  $style",
-    class => 'edge', w => 5, h => 3
-    );
-  }
-
-sub _gen_edge_down
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  # Downwards we can only do "|" (line), "| " (dashed) or "." (dotted)
-  # e.g. no double line
-
-  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
-  my $style2 = $style;
-  $style2 = ' ' if $s->{style} =~ /- /;
-
-  Graph::Simple::Node->new(
-    name => "  $style\n  $style2\n  v",
-    class => 'edge', w => 5, h => 3
-    );
-  }
-
-sub _gen_edge_up
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  # Upwards we can only do "|" (line), "| " (dashed) or "." (dotted)
-  # e.g. no double line
-
-  my $style = '|'; $style = '.' if $s->{style} =~ /\./;
-  my $style2 = $style;
-  $style2 = ' ' if $s->{style} =~ /- /;
-
-  Graph::Simple::Node->new(
-    name => "  ^\n  $style2\n  $style\n",
-    class => 'edge', w => 5, h => 3
-    );
-  }
-
-sub _gen_edge_left
-  {
-  my ($self, $src, $dst) = @_;
- 
-  my $s = $self->edge($src,$dst);
-
-  my $st = $s->{style} || '--';
-  $st =~ s/>//;
-  Graph::Simple::Node->new(
-    name => "\n <$st", class => 'edge', w => 5, w => 3,
-    );
   }
 
 sub _remove_path

@@ -21,6 +21,10 @@ use Graph::Simple::Parser;
 
 my $parser = Graph::Simple::Parser->new( debug => 0);
 
+my ($name,@dirs) = @ARGV;
+
+$name = 'Graph::Simple Test page' unless $name;
+
 my @toc = ();
 
 open FILE, 'syntax.tpl' or die ("Cannot read 'syntax.tpl': $!");
@@ -31,7 +35,7 @@ close FILE;
 my $output = ''; my $ID = '0';
 
 # generate the parts and push their names into @toc
-gen_graphs($parser);
+gen_graphs($parser, @dirs);
 
 my $toc = '<ul>';
 for my $t (@toc)
@@ -42,6 +46,7 @@ $toc .= "</ul>\n";
 
 # insert the TOC
 $html =~ s/##TOC##/ $toc /;
+$html =~ s/##NAME##/ $name /;
 $html =~ s/##HTML##/ $output /;
 $html =~ s/##time##/ scalar localtime() /eg;
 $html =~ s/##version##/$Graph::Simple::VERSION/eg;
@@ -59,8 +64,12 @@ sub gen_graphs
   # for all files in a dir, generate a graph from it
   my $parser = shift;
 
-  _for_all_files($parser, 'syntax');
-  _for_all_files($parser, 'stress');
+  @dirs = qw/syntax stress/ unless @dirs;
+
+  foreach my $dir (@dirs)
+    {
+    _for_all_files($parser, $dir);
+    }
   }
 
 sub _for_all_files
@@ -134,8 +143,8 @@ sub out
    "<div class='text'>\n" .
  
    "<div style='float: left;'>\n" . 
-   "<h3>Input</h3>\n" . 
-   "<pre>$txt</pre></div>"; 
+   " <h3>Input</h3>\n" . 
+   " <pre>$txt</pre>\n</div>"; 
   
   $out .= "<span style='color: red; font-weight: bold;'>Error:</span>" .
     $graph->error() if $graph->error();
@@ -143,15 +152,16 @@ sub out
   $out .=
 
    "<div style='float: left;'>\n" . 
-   "<h3>As Text</h3>\n" . 
-   "<pre>" . $graph->as_txt() . "</pre></div>" . 
+   " <h3>As Text</h3>\n" . 
+   "<pre>" . $graph->as_txt() . "</pre>\n</div>" . 
 
    "<div style='float: left;'>\n" . 
    "<h3>As HTML:</h3>\n" . 
-   $graph->$method() . "</div>\n" .
+   $graph->$method() . "\n</div>\n" .
 
    "<div class='clear'>&nbsp;</div></div>\n\n";
 
   $out;
   }
+
 

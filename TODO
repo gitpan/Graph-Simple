@@ -5,13 +5,37 @@ See Graph::Simple under LIMITATIONS for some hot topics.
 
 In addition:
 
+Parser:
+
+  * deal with " -> [ node ], [node2], [node3]"
+  * deal with optional attributes after an edge
+  * parse nested graphs
+
+Output:
+
+* as_ascii()/as_html(): finish handling of node groups (e.g. actually
+  output the grouping as border(background etc)
 * the ASCII outut is broken for t/stress/0004.txt - check and fix
+* when generating HTML tables, empty <td></td> could be collated as:
+    <td colspan=X></td>
+* class names in HTML could be shorter ("e" instead of "edge"), making the
+  output shorter
+* HTML output could be made shorter by using "id" instead of class? 
+* "stretch" edges: after we know how wide a column is, we can go
+  through all edges in that column and stretch them to fill the
+  entire width
+* add a class "link" to generated links (so they can be styled differently)
+
+Layout:
+
 * _trace_path() for bend edges (with one corner; and if X1 == X2 or
   Y1 == Y2, bend around two corners (U shaped))
 * _trace_path(): use A* algorithmn as last resort to find path
 * find place for nodes by walking in increasing circles around the source
   node
-* parser: deal with " [ node ], [node2], [node3]"
-* parser: deal with optional attributes after an edge
-* when generating HTML tables, trailing <td></td> pairs could be stripped
+* make nodes occupy more than one cell (for making very wide/very high nodes
+  fit better, as well as allowing more than 4 edges in/out of one node)
+
+Misc:
+
 * add our format to Graph::ReadWrite

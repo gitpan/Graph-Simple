@@ -11,13 +11,16 @@ use strict;
 use warnings;
 use Graph::Simple::Node;
 use Graph::Simple::Edge;
+use Graph::Simple::Path;
+use Graph::Simple::Group;
 use Graph::Simple::Layout;
+use Graph::Simple::As_txt;
 use Graph 0.55;
 use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm!
@@ -44,6 +47,7 @@ sub _init
   $self->{debug} = 0;
   
   $self->{id} = '';
+  $self->{groups} = {};
 
   $self->{html_header} = '';
   $self->{html_footer} = '';
@@ -54,31 +58,39 @@ sub _init
     border => '1px solid black',
     background => 'white',
     padding => '0.2em',
+    'padding-left' => '0.3em',
+    'padding-right' => '0.3em',
     margin => '0.1em',
     'text-align' => 'center',
-   },
+    },
   graph => { 
-    border => '1px solid black',
-    background => '#e0e0f0',
+    border => 'none',
+    background => 'inherit',
     margin => '0.5em',
     padding => '0.7em',
-    linkbase => '/wiki/',
-   },
+    linkbase => '/wiki/index.php/',
+    },
   edge => { 
     border => 'none',
     background => 'inherit',
     padding => '0.2em',
     margin => '0.1em',
     'text-align' => 'center',
-    'font-family' => 'courier-new, courier, monospaced, sans-serif',
-   },
+    'font-family' => 'monospaced, courier-new, courier, sans-serif',
+    # close the holes in the lines:
+    'line-height' => '0.7em',
+    'letter-spacing' => '-0.36em',
+    # add padding to the right since letter-spacing contracts the right side
+    'padding-right' => '0.4em',
+    },
   group => { 
-   },
+    border => '1px dashed black',
+    },
   };
 
   # make copy of defaults, to not include them in output
   $self->{def_att} = { node => {}, graph => {}, edge => {}};
-  foreach my $c (qw/node graph edge/)
+  foreach my $c (qw/node graph edge group/)
     {
     my $a = $self->{att}->{$c};
     foreach my $atr (keys %$a)
@@ -258,7 +270,7 @@ sub set_attributes
 
 #############################################################################
 #############################################################################
-# output (as_txt, as_ascii, as_html) routines
+# output (as_ascii, as_html) routines; as_txt is in As_txt.pm
 
 sub css
   {
@@ -269,8 +281,8 @@ sub css
   my $id = $self->{id};
 
   # for each primary class (node/group/edge) we need to find all subclasses,
-  # and list them in the CSS, too. Otherwise "node-city" will not inherit
-  # the attributes from "node", which it must.
+  # and list them in the CSS, too. Otherwise "node-city" would not inherit
+  # the attributes from "node".
 
   my $class_list = { edge => {}, node => {}, group => {} };
   foreach my $primary (qw/edge node group/)
@@ -280,30 +292,30 @@ sub css
       {
       if ($class =~ /^$primary\.(.*)/)
         {
-        $cl->{$1} = undef;				# remove doubles
+        $cl->{$1} = undef;				# note w/o doubles
         }
       }
     }
 
   foreach my $class (sort keys %$a)
     {
-
     next if keys %{$a->{$class}} == 0;			# skip empty ones
 
     my $c = $class; $c =~ s/\./-/g;			# node.city => node-city
 
-    my $classes = '';
+    my $cls = '';
     if ($c !~ /\./)					# one of our primary ones
       {
       # generate also class list 			# like: "cities7,node-rivers"
-      $classes = join ("$id,.$c-", sort keys %{ $class_list->{$c} });
-      $classes = ",.$c-$classes$id" if $classes ne '';	# like: ",node-cities7,node-rivers7"
+      $cls = join ("$id,.$c-", sort keys %{ $class_list->{$c} });
+      $cls = ",.$c-$cls$id" if $cls ne '';		# like: ",node-cities7,node-rivers7"
       }
-    $css .= ".$c$id$classes {\n";
+    $css .= ".$c$id$cls {\n";
     foreach my $att (sort keys %{$a->{$class}})
       {
+      # skip these for CSS
       next if 
-	$att =~ /^(linkbase|autolink|autotitle)\z/;	# skip these
+	$att =~ /^(label|linkbase|(auto)?(link|title))\z/;
 
       my $val = $a->{$class}->{$att};
       $css .= "  $att: $val;\n";
@@ -311,6 +323,34 @@ sub css
       }
     $css .= "}\n";
     }
+
+  # append CSS for lines/labes (that should be only done if we actually have
+  # edges with labels)
+ 
+  my @edges = $self->edges();
+
+  my $have_labels = 0;
+  for my $edge (@edges)
+    {
+    my $label = $edge->{label}; $label = '' unless defined $label;
+    $have_labels = 1, last if $label ne '';
+    }
+
+  $css .= <<CSS
+.label, .line {
+  padding: 0em;
+  margin: 0em;
+  position: relative;
+  top: 0.5em;
+}
+.label {
+  font-size: 0.7em;
+  letter-spacing: 0em;
+  top: -1.1em;
+  left: -0.3em;
+}
+CSS
+  if $have_labels != 0;
 
   $css;
   }
@@ -394,95 +434,29 @@ sub as_html
 
     $html .= " <tr>\n";
 
+    my $row = '';
     # for all possible columns
     for my $x (sort { $a <=> $b } keys %$cols)
       {
       if (!exists $rows->{$y}->{$x})
 	{
-	$html .= "  <$tag></$tag>\n";
+	$row .= "  <$tag></$tag>\n";
 	next;
 	}
       my $node = $rows->{$y}->{$x};
-      $html .= "  " . $node->as_html('td',$id);
+      $row .= "  " . $node->as_html('td',$id);
       }
 
-    $html .= " </tr>\n";
+    # remove trailing empty tag-pairs
+    $row =~ s/\s*<$tag><\/$tag>$// while $row =~ /<$tag><\/$tag>$/;
 
+    # append row to output
+    $html .= $row . " </tr>\n";
     }
 
   $html .= "</table>\n" . $self->{html_footer} . "\n";
   
   $html;
-  } 
-
-############################################################################# 
-
-sub as_txt
-  {
-  # convert the graph to a textual representation
-  # does not need a layout() before hand!
-  my ($self) = shift;
-
-  # generate the atributes first
-
-  my $txt = '';
-  my $att =  $self->{att};
-  for my $class (sort keys %$att)
-    {
-    my $a = $att->{$class};
-    my $att = '';
-    for my $atr (keys %$a)
-      {
-      # attribute not defined
-      next if !defined $a->{$atr};
-
-      next if defined $self->{def_att}->{$class}->{$atr} &&
-              $a->{$atr} eq $self->{def_att}->{$class}->{$atr};
-      $att .= "  $atr: $a->{$atr};\n";
-      }
-
-    if ($att ne '')
-      {
-      # the following makes short, single definitions to fit on one line
-      if ($att !~ /\n.*\n/ && length($att) < 40)
-        {
-        $att =~ s/\n/ /; $att =~ s/^  / /;
-        }
-      else
-        {
-        $att = "\n$att";
-        }
-      $txt .= "$class {$att}\n";
-      }
-    }
-
-  my @nodes = $self->sorted_nodes();
-
-  # output nodes with attributes first, sorted by their name
-  foreach my $n (sort { $a->{name} cmp $b->{name} } @nodes)
-    {
-    my $att = $n->attributes_as_txt();
-    $txt .= $n->as_txt_node() . $att . "\n" if $att ne '';
-    }
-
-  foreach my $n (@nodes)
-    {
-    my @out = $n->successors();
-    my $first = $n->as_txt_node();
-    if ((@out == 0) && ( (scalar $n->predecessors() || 0) == 0))
-      {
-      # single node without any connections
-      $txt .= $first . "\n";
-      }
-    # for all outgoing connections
-    foreach my $other (reverse @out)
-      {
-      my $edge = $self->edge( $n, $other );
-      $txt .= $first . $edge->as_txt() . $other->as_txt_node() . "\n";
-      }
-    }
-
-  $txt;
   } 
 
 ############################################################################# 
@@ -520,7 +494,7 @@ sub as_ascii
     my ($x,$y) = split/,/, $k;
     my $node = $cells->{$k};
 
-    # get all possible nodes from $cell (isntead of nodes) because
+    # get all possible nodes from $cell (instead of nodes) because
     # this also includes path nodes
     push @V, $node;
 
@@ -648,6 +622,55 @@ sub add_node
   $x->{graph} = $self;
 
   $self;
+  }
+
+#############################################################################
+# group management
+
+sub add_group
+  {
+  # add a group object
+  my ($self,$group) = @_;
+
+  # index under the group name for easier lookup
+  $self->{groups}->{ $group->{name} } = $group;
+ 
+  $self;
+  }
+
+sub del_group
+  {
+  # delete group
+  my ($self,$group) = @_;
+
+  delete $self->{groups}->{ $group->{name} };
+ 
+  $self;
+  }
+
+sub group
+  {
+  # return group by name
+  my ($self,$name) = @_;
+
+  $self->{groups}->{ $name };
+  }
+
+sub groups
+  {
+  # return number of groups (or groups as object list)
+  my ($self) = @_;
+
+  if (wantarray)
+    {
+    my @groups;
+    for my $g (sort keys %{$self->{groups}})
+      {
+      push @groups, $self->{groups}->{$g};
+      }
+    return @groups;
+    }
+  scalar keys %{$self->{groups}};
   }
 
 1;
@@ -964,6 +987,20 @@ then use L<as_html_page()>.
 Return the graph layout as HTML complete with headers, CSS section and
 footer. Can be viewed in the browser of your choice.
 
+=head2 html_page_header()
+
+	my $header = $graph->html_page_header();
+
+Return the header of an HTML page. Used together with L<html_page_footer>
+by L<as_html_page> to construct a complete HTML page.
+
+=head2 html_page_footer()
+
+	my $footer = $graph->html_page_footer();
+
+Return the footer of an HTML page. Used together with L<html_page_header>
+by L<as_html_page> to construct a complete HTML page.
+
 =head2 css()
 
 	my $css = $graph->css();
@@ -1074,9 +1111,14 @@ are limitations in the parser, which cannot yet handle the following features:
 
 =item nesting (graph-in-a-node)
 
-=item node groups
-
 =item node lists
+
+Node lists only work on the left side of an expression. E.g. the first line
+works, the second and third not:
+
+	[ Bonn ], [ Hof ] -> [ Berlin ]
+	[ Frankfurt ] -> [ Hamburg ], [ Dresden ]
+	[ Cottbus ], [ Kamenz ] -> [ Plauen ], [ Bamberg ]
 
 =back
 
@@ -1138,6 +1180,12 @@ This means each node can have at most 4 edges leading to or from it.
 All the flaws with the edges can be corrected easily, but there was simple
 not enough time for that yet.
 
+=head2 Node-Size
+
+A node is currently always one cell big. Overly broad/wide nodes, or nodes
+with multiple lines shoud occupy more than one cell. This would also
+enable them to have more than 4 incoming/outgoing edges.
+
 =head2 Distances
 
 Nodes are always placed 2 cells away from each other. If this fails, the node
@@ -1153,12 +1201,8 @@ incoming edges.
 
 =head2 Grouping
 
-Grouping of nodes is not yet implemented.
-
-=head2 Recursion
-
-Theoretically, a node could contain an entire second graph. Practially,
-this is not yet implemented.
+The output of the graphs in ASCII/HTML does not yet include the group
+information.
 
 =head2 Layouter
 

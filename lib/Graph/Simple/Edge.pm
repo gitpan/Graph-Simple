@@ -8,51 +8,13 @@ package Graph::Simple::Edge;
 use 5.006001;
 use strict;
 use warnings;
-require Exporter;
+use Graph::Simple::Node;
 
-use vars qw/$VERSION @EXPORT_OK @ISA/;
-@ISA = qw/Exporter/;
+use vars qw/$VERSION @ISA/;
 
-$VERSION = '0.06';
+@ISA = qw/Graph::Simple::Node/;		# an edge is a special node
 
-#############################################################################
-
-# The different celltypes for a path:
-sub EDGE_SHORT	{ 0; }	# |->		a start/end at the same cell
-sub EDGE_START	{ 1; }	# |--		starting-point
-sub EDGE_END	{ 2; }	# -->		end-point
-sub EDGE_HOR	{ 3; }	# --		horizontal line
-sub EDGE_VER	{ 4; }	# |		vertical line
-sub EDGE_CROSS	{ 5; }	# +		crossing lines
-sub EDGE_N_E	{ 6; }	# |_		corner (N to E)
-sub EDGE_N_W	{ 7; }	# _|		corner (N to W)
-sub EDGE_S_E	{ 8; }	# ,-		corner (S to E)
-sub EDGE_S_W	{ 9; }	# -,		corner (S to W)
-
-# Joints:
-sub EDGE_S_E_W	{ 10; }	# -,-		three-sided corner (S to W and S to E)
-sub EDGE_N_E_W	{ 11; }	# -'-		three-sided corner (N to W and N to E)
-sub EDGE_E_N_S	{ 12; }	# -|		three-sided corner (E to S and N)
-sub EDGE_W_N_S	{ 13; }	#  |-		three-sided corner (W to S and N)
-
-sub EDGE_MAX_TYPE () { 13; }	# last valid type
-
-@EXPORT_OK = qw/
-  EDGE_SHORT
-  EDGE_START
-  EDGE_END
-  EDGE_HOR
-  EDGE_VER
-  EDGE_CROSS
-  EDGE_N_E
-  EDGE_N_W
-  EDGE_S_E
-  EDGE_S_W
-  EDGE_N_E_W
-  EDGE_S_E_W
-  EDGE_W_N_S
-  EDGE_E_N_S
-  /;
+$VERSION = '0.07';
 
 #############################################################################
 
@@ -75,10 +37,10 @@ sub _init
   my ($self,$args) = @_;
   
   # '-->', '<->', '==>', '<==', '..>' etc
+  $self->{style} = '--';
+  $self->{label} = '';
 
-  $self->{style} = '-->';
-  $self->{name} = '';
-
+  $self->{class} = 'edge';
   $self->{cells} = { };
 
   # XXX TODO check arguments
@@ -86,17 +48,11 @@ sub _init
     {
     $self->{$k} = $args->{$k};
     }
+  $self->{label} = $self->{name} if defined $self->{name};
   
   $self->{error} = '';
 
   $self;
-  }
-
-sub as_ascii
-  {
-  my ($self) = @_;
-
-  $self->{style};
   }
 
 sub error
@@ -112,49 +68,21 @@ sub as_txt
   my $self = shift;
 
   # '- Name ' or ''
-  my $n = $self->{name};
+  my $n = $self->{label};
   $n = '- ' . $n . ' ' if $n ne '';
 
   # ' - Name -->' or ' --> '
-  ' ' . $n . $self->{style} . ' ';
+  ' ' . $n . $self->{style} . '> ';
   }
 
 #############################################################################
 # accessor methods
-
-sub name
-  {
-  my $self = shift;
-
-  $self->{name};
-  }
 
 sub style
   {
   my $self = shift;
 
   $self->{style};
-  }
-
-sub nodes
-  {
-  # return all the nodes connected by this edge
-  my $self = shift;
-
-  }
-
-sub to_nodes
-  {
-  # return the nodes this edge connects to
-  my $self = shift;
-
-  }
-
-sub from_nodes
-  {
-  # return the nodes this edge connects from
-  my $self = shift;
-
   }
 
 sub cells
@@ -178,38 +106,9 @@ sub clear_cells
 sub add_cell
   {
   # add a cell to the list of cells this edge covers
-  # x,y  - cell pos
-  # type - EDGE_START, EDGE_END, EDGE_HOR, EDGE_VER, etc
-  my ($self,$x,$y,$type) = @_;
-
-  if ($type < 0 || $type > EDGE_MAX_TYPE)
-    {
-    require Carp;
-    Carp::croak ("Cell type $type for cell $x,$y is not valid.");
-    }
-  $self->{cells}->{"$x,$y"} = $type;
-  }
-
-sub cell_type
-  {
-  # get/set type of cell at pos x,y
-  # x,y  - cell pos
-  # type - EDGE_START, EDGE_END, EDGE_HOR, EDGE_VER, etc
-  my ($self,$x,$y,$type) = @_;
-
-  my $key = "$x,$y";
-  if (defined $type)
-    {
-    if (defined $type && $type < 0 || $type > EDGE_MAX_TYPE)
-      {
-      require Carp;
-      Carp::croak ("Cell type $type for cell $x,$y is not valid.");
-      }
-    $self->{cells}->{$key} = $type;
-    }
-
-  return undef unless exists $self->{cells}->{$key};
-  $self->{cells}->{$key};
+  my ($self,$cell) = @_;
+  
+  $self->{cells}->{"$cell->{x},$cell->{y}"} = $cell;
   }
 
 1;
@@ -224,7 +123,7 @@ Graph::Simple::Edge - An edge (a path from one node to another)
         use Graph::Simple;
 
 	my $ssl = Graph::Simple::Edge->new(
-		name => 'encrypted connection',
+		label => 'encrypted connection',
 		style => '-->',
 		color => 'red',
 	);
@@ -249,8 +148,11 @@ A C<Graph::Simple::Edge> represents an edge between two (or more) nodes in a
 simple graph.
 
 Each edge has a direction (from source to destination, or back and forth),
-plus a style (line width and style), colors etc. It can also have a name,
+plus a style (line width and style), colors etc. It can also have a label,
 e.g. a text associated with it.
+
+Each edge also contains a list of path-elements (also called cells), which
+make up the path from source to destination.
 
 =head1 METHODS
 
@@ -269,17 +171,17 @@ Returns the last error message, or '' for no error.
 
 Returns the edge as a little ascii representation.
 
-=head2 name()
+=head2 label()
 
-	my $name = $edge->name();
+	my $label = $edge->label();
 
-Returns the name (also known as 'label') of the edge.
+Returns the label (also known as 'name') of the edge.
 
 =head2 style()
 
 	my $style = $edge->style();
 
-Returns the style of the edge.
+Returns the style of the edge, like '--', '==', '..', '- '.
 
 =head2 to_nodes()
 
@@ -302,9 +204,10 @@ as objects.
 
 =head2 add_cell()
 
-	$edge->add_cell( $x, $y, $type);
+	$edge->add_cell( $cell );
 
-Add a new cell at position C<$x> and C<$y> with type C<$type> to the edge.
+Add a new cell to the edge. C<$cell> should be an
+L<Graph::Simple::Path|Graph::Simple::Path> object.
 
 =head2 clear_cells()
 
@@ -318,57 +221,21 @@ Removes all belonging cells.
 
 Returns a hash containing all the cells this edge currently occupies. Keys
 on the hash are of the form of C<$x,$y> e.g. C<5,3> denoting cell at X = 5 and
-Y = 3. The values of the hash are the types for each cell, see L<cell_type()>
-for a list of possible types.
-
-=head2 cell_type()
-
-	$cell_type = $edge->cell_type( $x, $y );
-
-Return the type of the cell located at C< $x, $y >. Returns undef if
-the cell does not belong to this edge.
-
-Yo
-	$edge->cell_type( $x, $y, $new_type );
-
-The type is one of the following:
-
-	Type name	Picture	  Description
-
-	EDGE_SHORT	|-> 	  start and end point at same cell
-	EDGE_START	|--	  starting-point
-	EDGE_END	-->	  end-point
-	EDGE_HOR	--	  horizontal line
-	EDGE_VER	|	  vertical line
-	EDGE_CROSS	+	  crossing lines
+Y = 3. The values of the hash are the cell objects.
 
 =head1 EXPORT
 
-None by default. Can export the following on request:
-
-	EDGE_SHORT
-	EDGE_START
-	EDGE_END
-	EDGE_HOR
-	EDGE_VER
-	EDGE_CROSS
-	EDGE_N_E
-	EDGE_N_W
-	EDGE_S_E
-	EDGE_S_W
-	EDGE_N_E_W
-	EDGE_S_E_W
-	EDGE_W_N_S
-	EDGE_E_N_S
+None by default.
 
 =head1 TODO
 
-Different ASCII styles:
+=over 2
 
-   ,-----, 	       +-----+
-   | Foo | --,    vs.  | Foo |  --+
-   |_____|   |         +-----+    |
-	     |	                  |
+=item joints
+
+Edges that join another edge.
+
+=back
 
 =head1 SEE ALSO
 

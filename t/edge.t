@@ -6,40 +6,25 @@ BEGIN
    plan tests => 12;
    chdir 't' if -d 't';
    use lib '../lib';
+   use_ok qw/Graph::Simple::Edge/;
+   use_ok qw/Graph::Simple::Path/;
    }
-
-use Exporter;
-
-use Graph::Simple::Edge qw/
-   EDGE_START 
-   EDGE_SHORT 
-   EDGE_CROSS
-   EDGE_SHORT
-   EDGE_END
-   EDGE_VER
-   EDGE_HOR
-   EDGE_N_E
-   EDGE_N_W
-   EDGE_S_E
-   EDGE_S_W
-   EDGE_N_E_W
-   EDGE_S_E_W
-   EDGE_W_N_S
-   EDGE_E_N_S
-  /;
 
 can_ok ("Graph::Simple::Edge", qw/
   new
-  as_ascii as_txt
+  as_txt
   error
-  name
-  to_nodes
-  from_nodes
-  nodes
+  label
   cells
   add_cell
-  cell_type
+  clear_cells
+  attribute
+  set_attribute
+  set_attributes
+  groups
   /);
+  
+use Graph::Simple::Path qw/EDGE_SHORT_E/;
 
 #############################################################################
 
@@ -50,28 +35,32 @@ is (ref($edge), 'Graph::Simple::Edge');
 is ($edge->error(), '', 'no error yet');
 
 is ($edge->as_txt(), ' --> ', 'default is "-->"');
-is ($edge->as_ascii(), '-->', 'default is "-->"');
 
 #############################################################################
 # different styles
 
-$edge = Graph::Simple::Edge->new( style => '==>' );
+$edge = Graph::Simple::Edge->new( style => '==' );
 
 is ($edge->as_txt(), ' ==> ', '"==>"');
-is ($edge->as_ascii(), '==>', '"==>"');
 
 #############################################################################
 # cells
 
 is (scalar keys %{$edge->cells()}, 0, 'no cells');
 
-$edge->add_cell(0,0,EDGE_END());
+my $path = Graph::Simple::Path->new (
+  type => EDGE_SHORT_E,
+  x => 1, y => 1,
+);
+
+$edge->add_cell($path);
 is (scalar keys %{$edge->cells()}, 1, 'one cell');
 
-$edge->add_cell(0,0,EDGE_START());
+$edge->add_cell($path);
 is (scalar keys %{$edge->cells()}, 1, 'still one cell');
 
-$edge->add_cell(1,1,EDGE_END());
+$path->{x}++;
+$edge->add_cell($path);
 is (scalar keys %{$edge->cells()}, 2, 'two cells');
 
 $edge->clear_cells();

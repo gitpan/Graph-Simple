@@ -26,5 +26,6 @@ print $graph->as_txt();
 
 print $graph->as_ascii(), "\n";
 
-print $graph->css(), "\n", $graph->as_html();
+print "<style type='text/css'>\n<!--\n", 
+      $graph->css(), "--></style>\n", $graph->as_html();
 

@@ -13,17 +13,14 @@ can_ok ("Graph::Simple", qw/
   _trace_path
   _trace_straight_path
   _remove_path
-  _gen_edge_left
-  _gen_edge_right
-  _gen_edge_up
-  _gen_edge_down
+  _put_path
   /);
 
 isnt ($Graph::Simple::VERSION, undef, 'VERSION in Layout');
 
 use Graph::Simple;
 
-Graph::Simple::Edge->import (qw/EDGE_HOR EDGE_VER/);
+Graph::Simple::Path->import (qw/EDGE_HOR EDGE_VER/);
 
 #############################################################################
 # layout tests

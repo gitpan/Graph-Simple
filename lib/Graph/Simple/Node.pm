@@ -11,7 +11,7 @@ use warnings;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 
@@ -49,9 +49,9 @@ sub _init
   # | Sample |
   # +--------+
 
-  $self->{id} = new_id();		# get a new, unique ID
-
+  $self->{id} = new_id();
   $self->{name} = 'Node #' . $self->{id};
+  
   # attributes
   $self->{att} = { };
   $self->{class} = 'node';		# default class
@@ -74,6 +74,7 @@ sub _init
   $self->{in} = {};
   
   $self->{contains} = undef;
+  $self->{groups} = {};
  
   $self;
   }
@@ -96,24 +97,22 @@ sub _correct_w
     }
   }
 
-sub id
-  {
-  my $self = shift;
-
-  $self->{id};
-  }
-
 sub as_ascii
   {
   my ($self) = @_;
 
   my $txt;
 
+  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+
+  # XXX TODO: handle length("$l") < $w in code below
+ 
   my $border = $self->attribute('border') || 'none';
   if ($border eq 'none')
     {
     # 'Sample'
-    for my $l (split /\n/, $self->{name})
+    $txt = "";
+    for my $l (split /\n/, $name)
       {
       $txt .= "$l\n";
       }
@@ -124,7 +123,7 @@ sub as_ascii
     # | Sample |
     # +--------+
     $txt = '+' . '-' x ($self->{w}-2) . "+\n";
-    for my $l (split /\n/, $self->{name})
+    for my $l (split /\n/, $name)
       {
       $txt .= "| $l |\n";
       }
@@ -137,7 +136,7 @@ sub as_ascii
     # : Sample :
     # ..........
     $txt = '.' . '.' x ($self->{w}-2) . ".\n";
-    for my $l (split /\n/, $self->{name})
+    for my $l (split /\n/, $name)
       {
       $txt .= ": $l :\n";
       }
@@ -157,6 +156,7 @@ sub error
 
 sub attributes_as_txt
   {
+  # return the attributes of this node as text description
   my $self = shift;
 
   my $att = '';
@@ -176,7 +176,7 @@ sub attributes_as_txt
 
     my $val = $a->{$atr};
     # encode critical characters
-    $val =~ s/([:;\x00-\x20])/sprintf("%%%02x",ord($1))/eg;
+    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
 
     $att .= "$atr: $val; ";
     }
@@ -190,11 +190,11 @@ sub attributes_as_txt
   $att;
   }
 
-sub as_txt_node
+sub as_pure_txt
   {
   my $self = shift;
   
-  my $name = $self->{name};
+  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
 
   # quote special chars in name
   $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
@@ -206,7 +206,7 @@ sub as_txt
   {
   my $self = shift;
 
-  my $name = $self->{name};
+  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
 
   # quote special chars in name
   $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
@@ -216,7 +216,7 @@ sub as_txt
 
 sub as_html
   {
-  my ($self, $tag, $id) = @_;
+  my ($self, $tag, $id, $noquote) = @_;
 
   $tag = 'td' unless defined $tag && $tag ne '';
   $id = '' unless defined $id;
@@ -236,13 +236,13 @@ sub as_html
     
     # skip these:
     next if $atr =~
-	/^(linkbase|link|autolink|autotitle|title)\z/;
+	/^(label|linkbase|link|autolink|autotitle|title)\z/;
 
     # attribute defined, but same as default (or node not in a graph)
-    if (!defined $self->{graph})
-      {
-      print STDERR "Node $self->{name} is not associated with a graph!\n";
-      }
+#    if (!defined $self->{graph})
+#      {
+#      print STDERR "Node $self->{name} is not associated with a graph!\n";
+#      }
     next unless defined $self->{graph};
     
     my $DEF = $self->{graph}->attribute ($class, $atr);
@@ -255,9 +255,15 @@ sub as_html
 
   my $title = $self->attribute('title');
   my $autotitle = $self->attribute('autotitle');
-  if (!defined $title && defined $autotitle && $autotitle eq 'name')
+  if (!defined $title && defined $autotitle)
     {
-    $title = $self->{name};
+    $title = $self->{name} if $autotitle eq 'name';
+    # defined to avoid overriding "name" with the non-existant label attribute
+    $title = $self->{att}->{label} if $autotitle eq 'label' && defined $self->{att}->{label};
+    $title = $self->{name} if $autotitle eq 'label' && !defined $self->{att}->{label};
+
+    warn ("'$autotitle' not allowed for attribute 'autotitle' on node $self->{name}")
+      if $autotitle !~ /^(name|label|none)\z/;
     }
   $title = '' unless defined $title;
 
@@ -266,20 +272,29 @@ sub as_html
     $title =~ s/"/''/g;				# remove quotation mark
     $html .= " title=\"$title\"";		# cell with mouse-over title
     }
-  my $name = $self->{name};
+  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
 
-  $name =~ s/&/&amp;/g;				# quote &
-  $name =~ s/>/&gt;/g;				# quote >
-  $name =~ s/</&lt;/g;				# quote <
+  if (!$noquote)
+    {
+    $name =~ s/&/&amp;/g;				# quote &
+    $name =~ s/>/&gt;/g;				# quote >
+    $name =~ s/</&lt;/g;				# quote <
 
-  $name =~ s/\n/<br>/g;				# |\n|\nv => |<br>|<br>v
-  $name =~ s/^\s*<br>//;			# remove empty leading line
+    $name =~ s/\n/<br>/g;				# |\n|\nv => |<br>|<br>v
+    $name =~ s/^\s*<br>//;			# remove empty leading line
+    }
 
   my $link = $self->attribute('link');
   my $autolink = $self->attribute('autolink');
-  if (!defined $link && defined $autolink && $autolink eq 'name')
+  if (!defined $link && defined $autolink)
     {
-    $link = $self->{name};
+    $link = $self->{name} if $autolink eq 'name';
+    # defined to avoid overriding "name" with the non-existant label attribute
+    $link = $self->{att}->{label} if $autolink eq 'label' && defined $self->{att}->{label};
+    $link = $self->{name} if $autolink eq 'label' && !defined $self->{att}->{label};
+
+    warn ("'$autolink' not allowed for attribute 'autolink' on node $self->{name}")
+      if $autolink !~ /^(name|label|none)\z/;
     }
   $link = '' unless defined $link;
 
@@ -294,11 +309,13 @@ sub as_html
     {
     # decode %XX entities
     $link =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
+    # encode critical entities
+    $link =~ s/\s/\+/g;			# space
     $html .= "> <a href='$link'>$name</a> </$tag>\n";
     }
   else
     {
-    $html .= "> $name </$tag>\n";
+    $html .= ">$name</$tag>\n";
     }
   $html;
   }
@@ -325,6 +342,14 @@ sub name
   my $self = shift;
 
   $self->{name};
+  }
+
+sub label
+  {
+  my $self = shift;
+
+  my $label = $self->{att}->{label}; $label = $self->{name} unless defined $label;
+  $label;
   }
 
 sub y
@@ -395,7 +420,7 @@ sub class
   {
   my $self = shift;
 
-  $self->{class} || 'node';
+  $self->{class};
   }
 
 sub sub_class
@@ -407,6 +432,8 @@ sub sub_class
     $self->{class} =~ s/\..*//;		# nix subclass
     $self->{class} .= '.' . $_[0];	# append new one
     }
+  $self->{class} =~ /\.(.*)/;
+  $1;
   }
 
 sub attribute
@@ -420,14 +447,22 @@ sub attribute
 
   my $class = $self->class();
   
-  my $att = $self->{graph}->attribute ($self->{class} || 'node', $atr);
-
-  # If our parent class (like "node" for "node.city") doesnt have the
-  # attribute, see if we can inherit it from "graph":
-  if (!defined $att)
+  # See if we can inherit it from our groups:
+  # XXX TODO: what about the order we search the groups in? undefined?
+  for my $group (keys %{$self->{groups}})
     {
-    $att = $self->{graph}->attribute ('graph', $atr);
+    my $att = $self->{graph}->attribute ('group.' . $group, $atr);
+    return $att if defined $att;
     }
+
+  my $c = $class; $c =~ s/\.(.*)//;		# remove subclass
+
+  my $att = $self->{graph}->attribute ($c, $atr);
+
+  # If neither our group nor our parent class had the attribute, try to
+  # inherit it from "graph":
+  $att = $self->{graph}->attribute ('graph', $atr) unless defined $att;
+
   $att;
   }
 
@@ -439,6 +474,7 @@ sub set_attribute
   # remove quotation marks
   $val =~ s/^["']//;
   $val =~ s/["']\z//;
+  $val =~ s/\\#/#/;		# reverse backslashed \#
 
   # decode %XX entities
   $val =~ s/%([a-fA-F0-9][a-fA-F0-9])/sprintf("%c",hex($1))/eg;
@@ -459,6 +495,54 @@ sub set_attributes
   foreach my $n (keys %$atr)
     {
     $n eq 'class' ? $self->sub_class($atr->{$n}) : $self->set_attribute($n, $atr->{$n});
+    }
+  $self;
+  }
+  
+sub groups
+  {
+  # in scalar context, return number of groups this node belongs to
+  # in list context, returns all groups as list of objects, sorted by their
+  # name
+  my ($self) = @_;
+
+  if (wantarray)
+    {
+    my @groups;
+    for my $g (sort keys %{$self->{groups}})
+      {
+      push @groups, $self->{groups}->{$g};
+      }
+    return @groups;
+    }
+  scalar keys %{$self->{groups}};
+  }
+
+sub group
+  {
+  # return group with name $name
+  my ($self, $group) = @_;
+
+  $self->{groups}->{$group};
+  }
+
+sub add_to_groups
+  {
+  my ($self,@groups) = @_;
+
+  my $graph = $self->{graph};				# shortcut
+
+  for my $group (@groups)
+    {
+    if (!ref($group) && $graph)
+      {
+      my $g = $graph->group($group);
+      $g = Graph::Simple::Group->new( { name => $group } ) unless defined $g;
+      $group = $g;
+      }
+    # store the group, indexed by name (to avoid double entries)
+    $self->{groups}->{ $group->{name} } = $group;
+    $group->add_node($self);
     }
   $self;
   }
@@ -517,15 +601,23 @@ Return the node as a little box drawn in ASCII art as a string.
 
 	my $txt = $node->as_txt();
 
-Return the node in simple txt format.
+Return the node in simple txt format, including attributes.
+
+=head2 as_pure_txt()
+
+	my $txt = $node->as_pure_txt();
+
+Return the node in simple txt format, without the attributes.
 
 =head2 as_html()
 
-	my $html = $node->as_html($tag, $id);
+	my $html = $node->as_html($tag, $id, $noquote);
 
 Return the node in HTML. The C<$tag> is the optional name of the HTML
 tag to surround the node name with. C<$id> is an optional ID that is
-tagged onto the classname for the CSS.
+tagged onto the classname for the CSS. If the last parameter, C<$noquote>,
+is true, then the node's name will not be quoted/encoded for HTML output.
+This is usefull if it's name is already quoted.
 
 Example:
 
@@ -559,6 +651,12 @@ Returns the respective attribute of the node or undef if it
 was not set. If there is a default attribute for all nodes
 of the specific class the node is in, then this will be returned.
 
+=head2 attributes_as_txt
+
+	my $txt = $node->attributes_as_txt();
+
+Return the attributes of this node as text description.
+
 =head2 set_attribute()
 
 	$node->set_attribute('border', 'none');
@@ -578,6 +676,13 @@ Sets all attributes specified in C<$hash> as key => value pairs in this
 	my $name = $node->name();
 
 Return the name of the node.
+
+=head2 label()
+
+	my $label = $node->label();
+
+Return the label of the node. If no label was set, returns the C<name>
+of the node.
 
 =head2 contents()
 

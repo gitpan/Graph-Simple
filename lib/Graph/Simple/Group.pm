@@ -11,7 +11,7 @@ use warnings;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 
@@ -123,15 +123,20 @@ sub as_txt
   {
   my $self = shift;
 
-  my $txt = $self->{name} . ' ( ';
-  
-  my $n = $self->{nodes};
+  my $n = $self->{name};
+  # quote special chars in name
+  $n =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
 
-  for my $id ( keys %$n )
+  my $txt = "( $n\n";
+  
+  $n = $self->{nodes};
+    
+  for my $name ( sort keys %$n )
     {
-    $txt .= $n->{$id}->as_txt() . ", \n";
+    $n->{$name}->{_p} = 1;				# mark as processed
+    $txt .= '  ' . $n->{$name}->as_pure_txt() . "\n";
     }
-  $txt .= ')';
+  $txt .= ")\n";
   }
 
 #############################################################################
@@ -154,19 +159,29 @@ sub nodes
 sub add_node
   {
   my ($self,$n) = @_;
-
-  $self->{nodes}->{ $n->{id} } = $n;
+ 
+  if (!ref($n) || ref($n) =~ /Graph::Simple::Group/)
+    {
+    require Carp;
+    Carp::croak("Cannot add non-object or group $n as node to group '$self->{name}'");
+    }
+  $self->{nodes}->{ $n->{name} } = $n;
 
   $self;
   }
 
 sub add_nodes
   {
-  my ($self) = @_;
+  my $self = shift;
 
   foreach my $n (@_)
     {
-    $self->{nodes}->{ $n->{id} } = $n;
+    if (!ref($n) || ref($n) =~ /Graph::Simple::Group/)
+      {
+      require Carp;
+      Carp::croak("Cannot add non-object or group $n as node to group '$self->{name}'");
+      }
+    $self->{nodes}->{ $n->{name} } = $n;
     }
   $self;
   }

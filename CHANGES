@@ -134,7 +134,36 @@ Renamed to Graph::Simple:
     output node attributes only once
   * Graph: as_txt(): output node attributes only once
   * Graph: add set_attribute()
-  * examples/syntax.pl: generate headlines from comments in input, include footer
+  * examples/syntax.pl: generate headlines from comments in input, add footer
   * Graph: support attributes: linkbase, autolink, autotitle, link, title
   * Graph: as_html(): output title attributes, as well as links
 
+2005-01-31 v0.11 Tels 294 tests - Close, close, close, close the ugly holes...
+  * Parser: add parsing of groups like in "( Groupname [ Node ] )"
+  * Parser: fix for "[1] -> [2] -> [3] { ... }" to not lose attributes on 3 
+  * Parser: can now handle "[1], [2], [3] -> [4]" correctly
+  * Parser: cut out rendundant parsing code
+  * Graph: add group(), add_group(), del_group(), groups()
+  * Graph: fix css(): 'link', 'label' and 'title' do not need to appear in CSS
+  * Graph: suppress default attributes from groups, too
+  * Graph: close "holes" in "arrows" (edges) with line-height & letter-spacing
+  * Graph: inherit background from page, no border as default
+  * Graph: as_html() - remove trailing empty tags for shorter output
+  * Node: add group(), groups(), add_to_groups()
+  * Node: rename as_txt_node() to as_pure_txt(), document it
+  * Node: add label() and the handling of the label-attribute
+  * Node: support "label" as property in autolink/autotitle
+  * Node: as_txt(): no need to quote ":" and " " in attribute values
+  * Node: as_html(): quote " " in URLs
+  * Move as_txt() to As_txt.pm to reduce code size
+  * Group: keep nodes indexed by their name
+  * Group: fix as_txt() to quote group name, and include nodes
+  * Group: fix: add_nodes() did include the group itself by accident
+  * include examples/base.css for output of syntax.pl
+  * fix examples/syntax.tpl to have a non-scrolling menu
+  * add command-line dirnames to syntax.pl
+  * include t/fun/ - fun with graph-examples
+  * added Graph::Simple::Path and refactored Edge code - an edge now only
+    knows as_txt(); The other two, as_html() and as_ascii() are handled by
+    Path.pm (for each element of the edge seperately)
+  * more syntax examples

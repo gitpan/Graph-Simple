@@ -1,3 +1,3 @@
- # node groups
- [ Ulm ], [ Hahn ], [ Wismar ] => [ Frankfurt ]
- [ Frankfurt ] => [ Stuttgart ], [ Trier ]
+
+ [ Bonn ] -> [ Berlin ]
+

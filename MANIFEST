@@ -14,61 +14,75 @@ examples/syntax.tpl		HTML template for syntax tests
 examples/history.html		progress of hTML output over the time
 examples/parse			parser for tests
 examples/txt2ascii		parse text description and output it as ASCII art
+examples/base.css		needed for the output of syntax.pl
+examples/history.txt		test-graph for version comparisations
 t/ascii.t
 t/graph.t
 t/edge.t
 t/group.t
 t/layout.t
 t/node.t
+t/path.t
 t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/simple.t
 t/syntax/0000.txt		syntax tests for the parser
-t/syntax/0001.txt
-t/syntax/0002.txt
-t/syntax/0003.txt
-t/syntax/0004.txt
-t/syntax/0005.txt
-t/syntax/0006.txt
-t/syntax/0007.txt
-t/syntax/0008.txt
-t/syntax/0009.txt
 t/syntax/0010.txt
-t/syntax/0011.txt
-t/syntax/0012.txt
-t/syntax/0013.txt
-t/syntax/0014.txt
-t/syntax/0015.txt
-t/syntax/0016.txt
-t/syntax/0017.txt
-t/syntax/0018.txt
-t/syntax/0019.txt
 t/syntax/0020.txt
-t/syntax/0021.txt
-t/syntax/0022.txt
-t/syntax/0023.txt
-t/syntax/0024.txt
+t/syntax/0030.txt
+t/syntax/0040.txt
+t/syntax/0050.txt
+t/syntax/0060.txt
+t/syntax/0061.txt
+t/syntax/0062.txt
+t/syntax/0070.txt
+t/syntax/0080.txt
+t/syntax/0090.txt
+t/syntax/0100.txt
+t/syntax/0102.txt
+t/syntax/0110.txt
+t/syntax/0120.txt
+t/syntax/0130.txt
+t/syntax/0140.txt
+t/syntax/0150.txt
+t/syntax/0160.txt
+t/syntax/0170.txt
+t/syntax/0180.txt
+t/syntax/0190.txt
+t/syntax/0200.txt
+t/syntax/0210.txt
+t/syntax/0220.txt
+t/syntax/0230.txt
+t/syntax/0240.txt
 t/stress/0001.txt		stress-testing the layouter
 t/stress/0002.txt
 t/stress/0003.txt
 t/stress/0004.txt
 t/stress/0005.txt
 t/stress/0006.txt
+t/fun/0000.txt			fun with graph examples
+t/fun/0010.txt
+t/fun/0020.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt
 t/in/4nodes.txt
 t/in/4_2x2nodes.txt
+t/in/4groups.txt
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/3nodes.txt
 t/out/4nodes.txt
 t/out/4_2x2nodes.txt
+t/out/4groups.txt
+t/txt/4groups.txt
 lib/Graph/Simple.pm
 lib/Graph/Simple/Layout.pm	actual layout routines
+lib/Graph/Simple/As_txt.pm	code to generate textual description
 lib/Graph/Simple/Parser.pm
 lib/Graph/Simple/Node.pm
 lib/Graph/Simple/Edge.pm
+lib/Graph/Simple/Path.pm
 lib/Graph/Simple/Group.pm
 META.yml			Module meta-data (added by MakeMaker)

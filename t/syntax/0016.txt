@@ -1,0 +1,2 @@
+ [ Terminal \#1 ] -> [ Terminal \#2 ]
+ [ Terminal \( \#3 \) ]

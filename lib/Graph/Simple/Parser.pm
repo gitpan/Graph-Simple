@@ -32,6 +32,7 @@ sub _init
   my ($self,$args) = @_;
 
   $self->{error} = '';
+  $self->{debug} = 0;
   
   foreach my $k (keys %$args)
     {
@@ -45,9 +46,33 @@ sub _init
   $self;
   }
 
+sub reset
+  {
+  # reset the status of the parser, clear errors etc.
+  my $self = shift;
+
+  $self->{error} = '';
+
+  $self;
+  }
+
+sub from_file
+  {
+  my ($self,$file) = @_;
+
+  open PARSER_FILE, $file or die (ref($self).": Cannot read $file: $!");
+  local $\ = "\n";			# slurp mode
+  my $doc = <PARSER_FILE>;		# read entire file
+  close PARSER_FILE;
+
+  $self->from_text($doc);
+  }
+
 sub from_text
   {
   my ($self,$txt) = @_;
+
+  $self->reset();
 
   my $graph = Graph::Simple->new( { debug => $self->{debug} } );
 
@@ -62,8 +87,10 @@ sub from_text
   foreach my $line (@lines)
     {
     $nr++;
-    # remove comment:
-#    $line =~ s/#.*//;
+    next if $line =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
+    
+    # remove comment (but leave \# intact):
+    $line =~ s/[^\\]#.*//;
 
     chomp($line);
 
@@ -77,6 +104,9 @@ sub from_text
     if ($line =~ /^\[\s*([^\]]+?)\s*\]\z/)
       {
       my $n1 = $1;
+      # unquote special chars
+      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/;
+
       my $node_a = $graph->node($n1);
       if (!defined $node_a)
         {
@@ -91,25 +121,30 @@ sub from_text
     if ($line =~ /^\[\s*([^\]]+?)\s*\]\s*(<?)((=|-|- |\.)+)(>?)\s*\[\s*([^\]]+?)\s*\]/)
       {
       my $n1 = $1; my $n6 = $6; my $n3 = $3;
+
+      # unquote special chars
+      $n1 =~ s/\\([\[\(\{\}\]\)#])/$1/;
+      $n6 =~ s/\\([\[\(\{\}\]\)#])/$1/;
+
       my $node_a = $graph->node($n1);
       my $node_b = $graph->node($n6);
-      if (!defined $node_a || !defined $node_b)
-        {
-        $node_a = $c->new( { name => $n1 } ) unless defined $node_a;
-        $node_b = $c->new( { name => $n6 } ) unless defined $node_b;
-        my $style = '--';	# default
-#        print STDERR "edge style '$n3'\n";
-        $style = '==' if $n3 =~ /^=+\z/; 
-        $style = '..' if $n3 =~ /^\.+\z/; 
-        $style = '- ' if $n3 =~ /^(- )+\z/; 
-#        print STDERR "edge style '$style'\n";
-        # XXX TODO: look at $n2 and $n4 for left/right direction
-        my $edge = $e->new( { style => $style . '>' } );
-        $graph->add_edge ( $node_a, $node_b, $edge ); 
-        }
+
+      $node_a = $c->new( { name => $n1 } ) unless defined $node_a;
+      $node_b = $c->new( { name => $n6 } ) unless defined $node_b;
+
+      my $style = '--';	# default
+#      print STDERR "edge style '$n3'\n";
+      $style = '==' if $n3 =~ /^=+\z/; 
+      $style = '..' if $n3 =~ /^\.+\z/; 
+      $style = '- ' if $n3 =~ /^(- )+\z/; 
+#      print STDERR "edge style '$style'\n";
+      # XXX TODO: look at $n2 and $n4 for left/right direction
+      my $edge = $e->new( { style => $style . '>' } );
+      $graph->add_edge ( $node_a, $node_b, $edge ); 
       next LINE;
       }
 
+    $self->error("'$line' not recognized by parser.") and return undef;
     }
 
   $graph;
@@ -196,15 +231,34 @@ C<Graph::Simple::Parser> supports the following methods:
 
 Creates a new parser object.
 
+=head2 reset()
+
+	$parser->reset();
+
+Reset the status of the parser, clear errors etc.
+
 =head2 from_text()
 
-	my $graph = $parser->from_text();
+	my $graph = $parser->from_text( $text );
 
-Create a L<Graph::Simple> object. Returns undef for error, you
-can find the error with L<error()>.
+Create a L<Graph::Simple> object from the textual description in C<$text>.
+
+Returns undef for error, you can find out what the error was
+with L<error()>.
 
 This method will reset any previous error, and thus the C<$parser> object
-can be re-used to parse different texts.
+can be re-used to parse different texts by just calling C<from_text()>
+multiple times.
+
+=head2 from_file()
+
+	my $graph = $parser->from_file( $filename );
+
+Creates a L<Graph::Simple> object from the textual description in the file
+C<$filename>.
+
+Returns undef for error, you can find out what the error was
+with L<error()>.
 
 =head2 error()
 

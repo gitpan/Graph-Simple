@@ -5,7 +5,8 @@ See Graph::Simple under LIMITATIONS for some hot topics. Also:
 
 * _trace_path()
 * find place for nodes by walking in increasing circles around the source
-* node
+  node
+* Graph: as_txt() needs to quote special chars in node names
 
 * HTML/CSS: class names should contain the graph-id, this makes it possible
   to generate more than one graph in one page 

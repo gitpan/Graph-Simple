@@ -1,0 +1,5 @@
+ [ Bonn ] <-> [ Berlin ] 	# bidirectional
+ [ Berlin ] ==> [ Rostock ]	# double
+ [ Hamburg ] ..> [ Altona ]	# dotted
+ [ Dresden ] - > [ Bautzen ]	# dashed
+ [ Magdeburg ] <=> [ Ulm ]	# bidrectional, double etc

@@ -12,6 +12,8 @@ BEGIN
 can_ok ("Graph::Simple::Parser", qw/
   new
   from_text
+  from_file
+  reset
   error
   /);
 

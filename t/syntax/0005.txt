@@ -1,0 +1,6 @@
+ node { color: brown; }
+ graph { background: white; }
+ group { background: grey; }
+ edge { color: red; }
+
+ [ Wismar ] -> [ Neustadt ]

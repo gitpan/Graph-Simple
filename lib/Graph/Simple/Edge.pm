@@ -8,16 +8,38 @@ package Graph::Simple::Edge;
 use 5.006001;
 use strict;
 use warnings;
+require Exporter;
 
-use vars qw/$VERSION/;
+use vars qw/$VERSION @EXPORT_OK @ISA/;
+@ISA = qw/Exporter/;
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 #############################################################################
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm/Simple.pm!
 sub OBJ () { 'obj' };
+
+# The different celltypes for a path:
+  
+sub EDGE_SHORT  { 0; }	# |->		a start/end at the same cell
+sub EDGE_START  { 1; }	# |--		starting-point
+sub EDGE_END    { 2; }        # -->		end-point
+sub EDGE_HOR    { 3; }	# --		horizontal line
+sub EDGE_VER    { 4; }	# |		vertical line
+sub EDGE_CROSS  { 5; }	# +		crossing lines
+
+sub EDGE_MAX_TYPE () { 5; }	# last valid type
+
+@EXPORT_OK = qw/
+  EDGE_SHORT
+  EDGE_START
+  EDGE_END
+  EDGE_HOR
+  EDGE_VER
+  EDGE_CROSS
+  /;
 
 #############################################################################
 
@@ -43,6 +65,8 @@ sub _init
 
   $self->{style} = '-->';
   $self->{name} = '';
+
+  $self->{cells} = { };
 
   # XXX TODO check arguments
   foreach my $k (keys %$args)
@@ -120,6 +144,44 @@ sub cells
   # return all the cells this edge currently occupies
   my $self = shift;
 
+  $self->{cells};
+  }
+
+sub add_cell
+  {
+  # add a cell to the list of cells this edge covers
+  # x,y  - cell pos
+  # type - EDGE_START, EDGE_END, EDGE_HOR, EDGE_VER, etc
+  my ($self,$x,$y,$type) = @_;
+
+  if ($type < 0 || $type > EDGE_MAX_TYPE)
+    {
+    require Carp;
+    Carp::croak ("Cell type $type for cell $x,$y is not valid.");
+    }
+  $self->{cells}->{"$x,$y"} = $type;
+  }
+
+sub cell_type
+  {
+  # get/set type of cell at pos x,y
+  # x,y  - cell pos
+  # type - EDGE_START, EDGE_END, EDGE_HOR, EDGE_VER, etc
+  my ($self,$x,$y,$type) = @_;
+
+  my $key = "$x,$y";
+  if (defined $type)
+    {
+    if (defined $type && $type < 0 || $type > EDGE_MAX_TYPE)
+      {
+      require Carp;
+      Carp::croak ("Cell type $type for cell $x,$y is not valid.");
+      }
+    $self->{cells}->{$key} = $type;
+    }
+
+  return undef unless exists $self->{cells}->{$key};
+  $self->{cells}->{$key};
   }
 
 1;
@@ -210,9 +272,52 @@ Return the nodes (that connections come from) as objects.
 Return all the nodes connected (in either direction) by this edge
 as objects.
 
+=head2 add_cell()
+
+	$edge->add_cell( $x, $y, $type);
+
+Add a new cell at position C<$x> and C<$y> with type C<$type> to the edge.
+
+=head2 cells()
+
+	my $cells = $edge->cells();
+
+Returns a hash containing all the cells this edge currently occupies. Keys
+on the hash are of the form of C<$x,$y> e.g. C<5,3> denoting cell at X = 5 and
+Y = 3. The values of the hash are the types for each cell, see L<cell_type()>
+for a list of possible types.
+
+=head2 cell_type()
+
+	$cell_type = $edge->cell_type( $x, $y );
+
+Return the type of the cell located at C< $x, $y >. Returns undef if
+the cell does not belong to this edge.
+
+Yo
+	$edge->cell_type( $x, $y, $new_type );
+
+The type is one of the following:
+
+	Type name	Picture	  Description
+
+	EDGE_SHORT	|-> 	  start and end point at same cell
+	EDGE_START	|--	  starting-point
+	EDGE_END	-->	  end-point
+	EDGE_HOR	--	  horizontal line
+	EDGE_VER	|	  vertical line
+	EDGE_CROSS	+	  crossing lines
+
 =head1 EXPORT
 
-None by default.
+None by default. Can export the following on request:
+
+	EDGE_SHORT
+	EDGE_START
+	EDGE_END
+	EDGE_HOR
+	EDGE_VER
+	EDGE_CROSS
 
 =head1 SEE ALSO
 

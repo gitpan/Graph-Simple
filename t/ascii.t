@@ -68,7 +68,7 @@ sub readfile
   {
   my ($file) = @_;
 
-  open FILE, $file or die ("Cannot read file $file: $1");
+  open FILE, $file or die ("Cannot read file $file: $!");
   local $/ = undef;				# slurp mode
   my $doc = <FILE>;
   close FILE;

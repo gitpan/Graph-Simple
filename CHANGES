@@ -55,3 +55,19 @@ Renamed to Graph::Simple:
   * move the layout code to Graph::Simple::Layout
   * add a testcase with two not-connected node-pools in one graph
   * amend README, INSTALL
+
+2005-01-08 v0.06 Tels 94 tests
+  * fix version in Layout
+  * Edge: add EDGE_START, EDGE_END, EDGE_HOR, EDGE_VER, EDGE_CROSS
+  * Edge: add cell_type(), add_cell()
+  * fix pod with "=end graph" (vs. "=end") sections
+  * fix error message in t/ascii.t when reading file fails
+  * fix parser: did not add edge if both nodes already existed
+  * Layout: add _trace_straight_path() - trace a path horizontal/vertical
+  * Layout: add _remove_path() - remove a traced path
+  * tests: add t/layout.t, t/syntax/*
+  * add examples/syntax.pl, examples/syntax.tpl to create automatic
+    syntax test page for website
+  * Parser: add reset() and call it from from_text()
+  * Parser: handle quoted characters in node names
+  * Parser: handle comments

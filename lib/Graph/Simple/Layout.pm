@@ -8,7 +8,7 @@ package Graph::Simple::Layout;
 
 use vars qw/$VERSION/;
 
-my $VERSION = '0.01';
+$VERSION = '0.01';
 
 #############################################################################
 #############################################################################
@@ -52,7 +52,10 @@ sub layout
 
   print STDERR "# Start\n" if $self->{debug};
 
+  my @done = ();			# stack with already done actions
   my $step = 0;
+  my $tries = 16;
+
   TRY:
   while (@todo > 0)			# all actions on stack done?
     {
@@ -63,6 +66,8 @@ sub layout
 
     # pop one action
     my $action = shift @todo;
+
+    push @done, $action;
 
     my ($src, $dst, $mod, @coord);
 
@@ -128,7 +133,7 @@ sub layout
 
           # put current action back
           unshift @todo, $action;
-          # insert action to place target before hand
+          # insert action to place target beforehand
           unshift @todo, $dst;
           next TRY;
           }
@@ -159,6 +164,27 @@ sub layout
           {
           delete $cells->{$coord[$i] . ',' . $coord[$i+1]};
           }
+        print STDERR "# Step $step: Rewound\n" if $self->{debug};
+          
+        # if we couldn't find a path, we need to rewind one more action (just
+	# redoing the path would would fail again)
+
+#        use Data::Dumper; print STDERR Dumper( \@done );
+        unshift @todo, $action;
+        unshift @todo, pop @done;
+        if (ref($todo->[0]) && ref($todo->[0]) ne 'ARRAY')
+          {
+          print STDERR ref($todo->[0]),"\n";;
+          my $action = $todo->[0];
+          delete $cells->{"$action->{x},$action->{y}"};
+          # mark node as tobeplaced
+          $action->{x} = undef;
+          $action->{y} = undef;
+          }
+#        print STDERR Dumper( \@done );
+  	$tries--;
+	last TRY if $tries == 0;
+        next TRY;
         }
       unshift @todo, $action;
       next TRY;
@@ -306,6 +332,36 @@ sub _trace_path
   ($mod,@coord);
   }
 
+sub _trace_straight_path
+  {
+  my ($self, $src, $dst) = @_;
+
+  # check that a straigh path from point A to B exists
+  my ($x0, $y0) = ($src->{x}, $src->{y});
+  my ($x1, $y1) = ($dst->{x}, $dst->{y});
+
+  my ($dx,$dy) = (($x1 - $x0), ($y1 - $y0));
+
+  if ($dx != 0 && $dy != 0)
+    {
+    # straight path not possible, since x0 != x1 AND y0 != y1
+    return;
+    }
+
+  my ($x,$y) = ($x0,$y);		# starting pos
+  my @coords;
+  while ($x != $x1 && $y != $y0)
+    {
+    # XXX TODO handle here crossing paths
+    return if exists $cells->{"$x,$y"};	# cell already full
+
+    push @coords, "$x,$y";		# good one, is free
+    $x += $dx;				# next field
+    $y += $dy;
+    }
+  @coords;				# return all fields of path
+  }
+
 sub _gen_edge_right
   {
   my ($self, $src, $dst) = @_;
@@ -365,6 +421,23 @@ sub _gen_edge_left
   Graph::Simple::Node->new(
     name => "\n <$s", border => 'none', class => 'edge', w => 5, w => 3,
     );
+  }
+
+sub _remove_path
+  {
+  # Take an edge, and remove all the cells it covers from the cells area
+  my ($self, $edge) = @_;
+
+  my $cells = $self->{cells};
+  my $covered = $edge->cells();
+
+  for my $key (keys %$covered)
+    {
+    # XXX TODO: handle crossed edges here differently (from CROSS => HOR
+    # or VER)
+    # free in our cells area
+    delete $cells->{$key};
+    }
   }
 
 1;

@@ -1,0 +1,7 @@
+ [ 
+   Bonn
+ ] -> 
+ [ 
+   Berlin
+   (Capital)
+ ] -> [ Wismar ]

@@ -9,13 +9,34 @@ TODO
 examples/common.pl		generate example graphs
 examples/ascii.pl		examples as ASCII
 examples/html.pl		examples as HTML
+examples/syntax.pl		syntax tests
+examples/syntax.tpl		HTML template for syntax tests
+examples/history.html		progress of hTML output over the time
 t/ascii.t
 t/graph.t
 t/edge.t
 t/group.t
+t/layout.t
 t/node.t
 t/parser.t
 t/simple.t
+t/syntax/0000.txt
+t/syntax/0001.txt
+t/syntax/0002.txt
+t/syntax/0003.txt
+t/syntax/0004.txt
+t/syntax/0005.txt
+t/syntax/0006.txt
+t/syntax/0007.txt
+t/syntax/0008.txt
+t/syntax/0009.txt
+t/syntax/0010.txt
+t/syntax/0011.txt
+t/syntax/0012.txt
+t/syntax/0013.txt
+t/syntax/0014.txt
+t/syntax/0015.txt
+t/syntax/0016.txt
 t/in/1node.txt
 t/in/2nodes.txt
 t/in/3nodes.txt

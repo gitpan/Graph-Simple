@@ -3,12 +3,22 @@ use strict;
 
 BEGIN
    {
-   plan tests => 9;
+   plan tests => 11;
    chdir 't' if -d 't';
    use lib '../lib';
-   use_ok ("Graph::Simple::Edge") or die($@);
-   use_ok ("Graph::Simple") or die($@);
-   };
+   }
+
+use Exporter;
+
+use Graph::Simple::Edge qw/
+   EDGE_START 
+   EDGE_SHORT 
+   EDGE_CROSS
+   EDGE_SHORT
+   EDGE_END
+   EDGE_VER
+   EDGE_HOR
+  /;
 
 can_ok ("Graph::Simple::Edge", qw/
   new
@@ -19,6 +29,8 @@ can_ok ("Graph::Simple::Edge", qw/
   from_nodes
   nodes
   cells
+  add_cell
+  cell_type
   /);
 
 #############################################################################
@@ -40,4 +52,17 @@ $edge = Graph::Simple::Edge->new( style => '==>' );
 is ($edge->as_txt(), ' ==> ', '"==>"');
 is ($edge->as_ascii(), '==>', '"==>"');
 
+#############################################################################
+# cells
+
+is (scalar keys %{$edge->cells()}, 0, 'no cells');
+
+$edge->add_cell(0,0,EDGE_END());
+is (scalar keys %{$edge->cells()}, 1, 'one cell');
+
+$edge->add_cell(0,0,EDGE_START());
+is (scalar keys %{$edge->cells()}, 1, 'still one cell');
+
+$edge->add_cell(1,1,EDGE_END());
+is (scalar keys %{$edge->cells()}, 2, 'two cells');
 

@@ -17,7 +17,7 @@ use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm/Edge.pm!
@@ -45,7 +45,7 @@ sub _init
   
   $self->{html_header} = '';
   $self->{html_footer} = '';
-  $self->{html_style} = 'display: block;';
+  $self->{html_style} = '';
   $self->{html_css} = <<HERE
  <style type="text/css">
   <!--
@@ -442,6 +442,8 @@ sub add_edge
   
   my $g = $self->{graph};
 
+  print STDERR " add_edge $x->{name} -> $y->{name}\n" if $self->{debug};
+
   # register the nodes with our graph object
   $x->{graph} = $g;
   $y->{graph} = $g;
@@ -555,7 +557,7 @@ C<Graph::Simple::Parser> to parse simple graph descriptions like:
 	[ Frankfurt ] <=> [ Dresden ]
 	[ Bonn ]      --> [ Frankfurt ]
 
-See L<Examples> for how this might be rendered.
+See L<EXAMPLES> for how this might be rendered.
 
 =head2 Output
 
@@ -598,7 +600,7 @@ only one node:
 
 	[ Dresden ]
 
-=end
+=end graph
 
 =head2 Two nodes
 
@@ -608,7 +610,7 @@ A simple graph consisting of two nodes, linked together by a directed edge:
 
 	[ Bonn ] -> [ Berlin ]
 
-=end
+=end graph
 
 =head2 Three nodes
 
@@ -619,7 +621,7 @@ A graph consisting of three nodes, and both are linked from the first:
 	[ Bonn ] -> [ Berlin ]
 	[ Bonn ] -> [ Hamburg ]
 
-=end
+=end graph
 
 =head2 Two not connected graphs
 
@@ -631,7 +633,7 @@ to each other:
 	[ Bonn ] -> [ Berlin ]
 	[ Freiburg ] -> [ Hamburg ]
 
-=end
+=end graph
 
 =head2 Three nodes, interlinked
 
@@ -644,7 +646,7 @@ the first node:
 	[ Berlin ] -> [ Hamburg ]
 	[ Bonn ] -> [ Hamburg ]
 
-=end
+=end graph
 
 =head1 METHODS
 

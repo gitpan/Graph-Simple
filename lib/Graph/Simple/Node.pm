@@ -10,7 +10,7 @@ use strict;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 
@@ -193,6 +193,43 @@ sub attributes_as_txt
   $att;
   }
 
+sub attributes_as_graphviz
+  {
+  # return the attributes of this node as text description
+  my $self = shift;
+
+  my $att = '';
+  my $class = $self->class();
+  my $a = $self->{att};
+  for my $atr (sort keys %$a)
+    {
+    # attribute not defined
+    next if !defined $a->{$atr};
+
+    # attribute defined, but same as default
+    if (defined $self->{graph})
+      {
+      my $DEF = $self->{graph}->attribute ($class, $atr);
+      next if defined $DEF && $a->{$atr} eq $DEF;
+      }
+
+    my $val = $a->{$atr};
+    # encode critical characters
+    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
+
+    $att .= "$atr=$val, ";
+    }
+  # include our subclass as attribute
+  $att .= "class: $1; " if $class =~ /\.(\w+)/;
+  
+  $att =~ s/,\s$//; 		# remove last ","
+
+  # generate attribute text if nec. 
+  $att = ' [ ' . $att . ' ]' if $att ne '';
+
+  $att;
+  }
+
 sub as_pure_txt
   {
   my $self = shift;
@@ -203,6 +240,18 @@ sub as_pure_txt
   $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
 
   '[ ' .  $name . ' ]';
+  }
+
+sub as_graphviz_txt
+  {
+  my $self = shift;
+  
+  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+
+  # quote special chars in name
+  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+
+  '"' .  $name . '"';
   }
 
 sub as_txt

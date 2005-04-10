@@ -78,7 +78,7 @@ my $cells = { '0,0' => $cell };
 $cell->_set_type( $cells );
 
 is ($cell->type(), GROUP_ALL, 'GROUP_ALL');
-is ($cell->class(), 'groupall', 'groupall');
+is ($cell->class(), 'group-all', 'group-all');
 
 is ($cell->group( $group->{name} ), $group, "group()");
 
@@ -98,5 +98,5 @@ is ($cell2->group( $group->{name} ), $group, "group()");
 
 $cell->_set_type( $cells );
 is ($cell->type(), GROUP_LEFT, 'GROUP_LEFT');
-is ($cell->class(), 'groupl', 'groupl');
+is ($cell->class(), 'group-l', 'group-l');
 

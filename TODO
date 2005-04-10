@@ -14,7 +14,8 @@ Output:
 
 * as_ascii(): output group borders and labels
 * as_html(): output group labels
-* shorten HTML ("id" instead "class"?) (shorten CSS for groups by combining)
+* support different shapes (circle, box, rounded etc)
+* shorten HTML ("id" instead "class"?)
 * "stretch" edges: after we know how wide a column is, we can go
   through all edges in that column and stretch them to fill the
   entire width
@@ -33,6 +34,7 @@ Layout:
 
 Misc:
 
-* add our format to Graph::ReadWrite
-* add as_svg()
-* add as_graphviz()
+* Add our format to Graph::ReadWrite
+* Add as_svg()
+* Finish graphviz output
+

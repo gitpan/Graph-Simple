@@ -19,6 +19,7 @@ examples/history.txt		test-graph for version comparisations
 examples/fun.tpl
 t/ascii.t
 t/graph.t
+t/graphviz.t
 t/edge.t
 t/group.t
 t/layout.t
@@ -49,7 +50,8 @@ t/syntax/0131.txt
 t/syntax/0140.txt
 t/syntax/0150.txt
 t/syntax/0160.txt
-t/syntax/0170.txt
+t/syntax/0170.txt		edges with labels
+t/syntax/0171.txt		edges with attributes
 t/syntax/0180.txt
 t/syntax/0190.txt
 t/syntax/0200.txt
@@ -87,6 +89,7 @@ t/txt/4groups_class.txt
 lib/Graph/Simple.pm
 lib/Graph/Simple/Layout.pm	actual layout routines
 lib/Graph/Simple/As_txt.pm	code to generate textual description
+lib/Graph/Simple/As_graphviz.pm	code to generate textual description
 lib/Graph/Simple/Parser.pm
 lib/Graph/Simple/Node.pm
 lib/Graph/Simple/Node/Cell.pm

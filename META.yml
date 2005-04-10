@@ -1,10 +1,10 @@
 --- #YAML:1.0
 name: Graph-Simple
-version: 0.12
+version: 0.14
 version_from: lib/Graph/Simple.pm
 license: gpl
 distribution_type: module
-generated_by: Graph-Simple version 0.12
+generated_by: Graph-Simple version 0.14
 installdirs: site
 requires:
-  Graph: 0.55
+  Graph: 0.61

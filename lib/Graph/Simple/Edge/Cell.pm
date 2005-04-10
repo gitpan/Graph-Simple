@@ -210,29 +210,27 @@ sub as_html
       $right = '&gt;' if $type == EDGE_SHORT_E;
       # twice the length of the label is about right, due to 0.7 * 0.8
       # (letter-spacing * font-size) being about 1.8 plus some spacing left/right
-      my $length = int(2 + 0.85 * length($label));
+      my $length = int(2 + 0.90 * length($label));
 
       $self->{name} = 
       "<span class='label'>$label</span><br>" .
       "<span class='line'>$left" . ($self->{style} x $length) . "$right</span>\n";
       $noquote = 1;
+      $self->{class} = 'edgel';
       } 
     elsif (($type == EDGE_SHORT_N) ||
           ($type == EDGE_SHORT_S))
       {
-      # twice the length of the label is about right, due to 0.7 * 0.8
-      # (letter-spacing * font-size) being about 1.8 plus some spacing left/right
       my $name = $self->{name}; 
       $name =~ s/&/&amp;/g;
       $name =~ s/</&lt;/g;
       $name =~ s/</&gt;/g;
       $name =~ s/\n/<br>/g;
  
-      my $x = sprintf("%0.2f", length($label) * 0.35 + 0.2);
       $self->{name} = 
-      "<span class='line'>$name</span>" .
-      "<span class='labelv' style='left: $x"."em'>$label</span>\n";
+      "$name<span class='labelv'>$label</span>\n";
       $noquote = 1;
+      $self->{class} = 'edgev';
       }
     } # end of label handling code 
 

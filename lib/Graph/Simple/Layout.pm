@@ -18,24 +18,13 @@ package Graph::Simple;
 use strict;
 use Graph::Simple::Node::Cell;
 use Graph::Simple::Edge::Cell qw/
-  EDGE_SHORT_E
-  EDGE_SHORT_W
-  EDGE_SHORT_N
-  EDGE_SHORT_S
+  EDGE_SHORT_E EDGE_SHORT_W EDGE_SHORT_N EDGE_SHORT_S
 
-  EDGE_START_E
-  EDGE_START_W
-  EDGE_START_N
-  EDGE_START_S
+  EDGE_START_E EDGE_START_W EDGE_START_N EDGE_START_S
 
-  EDGE_END_E
-  EDGE_END_W
-  EDGE_END_N
-  EDGE_END_S
+  EDGE_END_E EDGE_END_W EDGE_END_N EDGE_END_S
 
-  EDGE_HOR
-  EDGE_VER
-  EDGE_CROSS
+  EDGE_HOR EDGE_VER EDGE_CROSS
  /;
 
 #############################################################################

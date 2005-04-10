@@ -14,12 +14,13 @@ use Graph::Simple::Group;
 use Graph::Simple::Group::Cell qw/GROUP_MAX/;
 use Graph::Simple::Layout;
 use Graph::Simple::As_txt;
-use Graph 0.55;
+use Graph::Simple::As_graphviz;
+use Graph 0.61;
 use Graph::Directed;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.12';
+$VERSION = '0.14';
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm!
@@ -81,6 +82,7 @@ sub _init
     'letter-spacing' => '-0.36em',
     # add padding to the right since letter-spacing contracts the right side
     'padding-right' => '0.5em',
+    'width' => '1.8em',
     },
   group => { 
     border => '1px dashed black',
@@ -304,10 +306,11 @@ sub css
 
     my $c = $class; $c =~ s/\./-/g;			# node.city => node-city
 
+    my $css_txt = '';
     my $cls = '';
     if ($class eq 'graph')
       {
-      $css .= "table.graph$id {\n";
+      $css_txt .= "table.graph$id {\n";
       }
     else
       {
@@ -317,25 +320,31 @@ sub css
         $cls = join (",table.graph$id .$c-", sort keys %{ $class_list->{$c} });
         $cls = ", table.graph$id .$c-$cls" if $cls ne '';		# like: ",node-cities,node-rivers"
         }
-      $css .= "table.graph$id .$c$cls {\n";
+      $css_txt .= "table.graph$id .$c$cls {\n";
       }
+    my $done = 0;
     foreach my $att (sort keys %{$a->{$class}})
       {
       # skip these for CSS
       next if 
 	$att =~ /^(label|linkbase|(auto)?(link|title)|nodeclass)\z/;
 
+      $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};
       # set for inner group cells "border: none"
       $val = 'none' if $att eq 'border' && $c eq 'group';
-      $css .= "  $att: $val;\n";
-     
+      $css_txt .= "  $att: $val;\n";
       }
-    $css .= "}\n";
+    $css_txt .= "}\n";
+    $css .= $css_txt if $done > 0;			# skip if no attributes at all
     }
 
-  # "filler" cells:
-  $css .= "table.graph$id td {\n" . <<CSS
+  # Set attributes for all TDs that start with "group" (hyphen seperated,
+  # so that group classes are something like "group-l-cities". The second rule
+  # is for all TD without any class at all (these are the "filler" cells):
+  $css .= <<CSS
+table.graph##id## td[class|="group"] { padding: 0.2em; }
+table.graph##id## td {
   padding: 2px;
   background: inherit;
   }
@@ -347,7 +356,6 @@ CSS
 
   if (@groups > 0)
     {
-
     # important for Mozilla/Gecko
     $css .= "table.graph$id { border-collapse: collapse; }\n";
 
@@ -378,10 +386,21 @@ CSS
     $have_labels = 1, last if defined $label && $label ne '';
     }
 
+  # isnsert edgev
+  $css =~ s/.edge/.edge, table.graph##id## .edgev, table.graph##id## .edgel/ if $have_labels != 0;
+
   $css .= <<CSS
+table.graph##id## .edgev {
+  text-align: left;
+}
+table.graph##id## .edgel {
+  width: auto;
+}
 table.graph##id## .label, table.graph##id## .line {
   padding: 0em;
   margin: 0em;
+  position: relative;
+  top: -0.2em;
 }
 table.graph##id## .label, table.graph##id## .labelv { 
   font-size: 0.7em;
@@ -389,7 +408,8 @@ table.graph##id## .label, table.graph##id## .labelv {
 }
 table.graph##id## .labelv {
   position: relative;
-  top: -1.1em; 
+  top: -1.5em;
+  left: 0.5em;
 }
 CSS
   if $have_labels != 0;
@@ -453,6 +473,9 @@ sub as_html
  
   my $cells = $self->{cells};
   my ($rows,$cols);
+  
+  my $max_x = undef;
+  my $min_x = undef;
 
   # find all x and y occurances to sort them by row/columns
   for my $k (keys %$cells)
@@ -460,12 +483,20 @@ sub as_html
     my ($x,$y) = split/,/, $k;
     my $node = $cells->{$k};
 
+    $max_x = $x if !defined $max_x || $x > $max_x;
+    $min_x = $x if !defined $min_x || $x < $min_x;
+    
     # trace the rows we do have
     $rows->{$y}->{$x} = $node;
     # record all possible columns
     $cols->{$x} = undef;
     }
- 
+  
+  # number of cells in the table, maximum  
+  my $max_cells = $max_x - $min_x + 1;
+  
+  my $groups = scalar $self->groups();
+
   my $id = $self->{id};
  
   $html .= "\n<table class=\"graph$id\" cellpadding=4px cellspacing=0";
@@ -473,8 +504,6 @@ sub as_html
   $html .= ">\n";
 
   my $tag = $self->{html_tag} || 'td';
-
-  my $max_cells = 1;
 
   # now run through all rows, and for each of them through all columns 
   for my $y (sort { ($a||0) <=> ($b||0) } keys %$rows)
@@ -496,11 +525,17 @@ sub as_html
       push @row, "  " . $node->as_html('td',$id);
       }
 
-    # remove trailing empty tag-pairs
-    pop @row while (@row > 0 && !defined $row[-1]);
+    # remove trailing empty tag-pairs (but not if we have groups, becasuse
+    # firefox treats non-existing cells different than empty cells. 
+    if ($groups == 0)
+      {
+      pop @row while (@row > 0 && !defined $row[-1]);
+      }
+    else
+      {
+      push @row, undef while (@row < $max_cells);
+      }
 
-    $max_cells = scalar @row if @row > $max_cells;
- 
     # replace undef with empty tags
     foreach (@row)
       {

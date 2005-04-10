@@ -47,15 +47,15 @@ my $border_styles =
   {
   # type    	    top,	bottom, left,   right,	class
   GROUP_INNER()	 => [ 0,	0,	0,	0,	''],
-  GROUP_RIGHT()	 => [ 0,	0,	0,	1,	'r' ],
-  GROUP_LEFT()	 => [ 0,	0,	1,	0,	'l' ],
-  GROUP_TOP()	 => [ 1,	0,	0,	0,	't' ],
-  GROUP_BOTTOM() => [ 0,	1,	0,	0,	'b' ],
-  GROUP_ALL()	 => [ 1,	1,	1,	1,	'all' ],
-  GROUP_BOTTOM_RIGHT() => [ 0,	1,	0,	1,	'br' ],
-  GROUP_BOTTOM_LEFT() => [ 0,	1,	1,	0,	'bl' ],
-  GROUP_TOP_RIGHT() => [ 1,	0,	0,	1,	'tr' ],
-  GROUP_TOP_LEFT() => [ 1,	0,	1,	0,	'tl' ],
+  GROUP_RIGHT()	 => [ 0,	0,	0,	1,	'-r' ],
+  GROUP_LEFT()	 => [ 0,	0,	1,	0,	'-l' ],
+  GROUP_TOP()	 => [ 1,	0,	0,	0,	'-t' ],
+  GROUP_BOTTOM() => [ 0,	1,	0,	0,	'-b' ],
+  GROUP_ALL()	 => [ 0,	0,	0,	0,	'-all' ],
+  GROUP_BOTTOM_RIGHT() => [ 0,	1,	0,	1,	'-br' ],
+  GROUP_BOTTOM_LEFT() => [ 0,	1,	1,	0,	'-bl' ],
+  GROUP_TOP_RIGHT() => [ 1,	0,	0,	1,	'-tr' ],
+  GROUP_TOP_LEFT() => [ 1,	0,	1,	0,	'-tl' ],
   };
 
 my $border_name = [ 'top', 'bottom', 'left', 'right' ];
@@ -65,6 +65,10 @@ sub _css
   my ($c, $id, $type, $group, $border) = @_;
 
   my $b = $border_styles->{$type};
+  
+  # If border eq 'none', this would needlessly repeat the "border: none"
+  # from the general group class.
+  return '' if $border eq 'none';
 
   my $cl = ".group$b->[4]"; $cl .= "-$group" unless $group eq '';
   my $css = "table.graph$id $cl {";
@@ -72,7 +76,7 @@ sub _css
     {
     $css .= " border-$border_name->[$i]: $border;" if $b->[$i];
     }
-  $css .= " padding: 0.2em;";
+  $css .= " border: $border;" if $type == GROUP_ALL;	# shorter CSS
   $css .= "}\n";
 
   $css;
@@ -221,29 +225,6 @@ sub type
 ##  
 ##  # let Graph::Simple::Edge (aka Node) handle the output: 
 ##  $self->{group}->as_ascii(@_);
-#  }
-
-#sub as_html1
-#  {
-#  my ($self) = shift;
-# 
-#   
-##  print STDERR "path: as_html: '$label' $self->{edge}->{name}\n";
-#
-#  my $group = $self->{group};
-#
-#  my $cl = $group->{class};
-#  $group->{class} = $self->{class};
-#  my $na = $group->{name};
-#  $group->{name} = $self->{name};
-#
-#  # let Graph::Simple::Group (aka Node) handle the output: 
-#  my $html = $self->{group}->as_html($_[0], $_[1]);
-#
-#  $group->{class} = $cl;
-#  $group->{name} = $na;
-#
-#  $html;
 #  }
 
 sub error

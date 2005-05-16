@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 44;
+   plan tests => 51;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Parser") or die($@);
@@ -28,6 +28,17 @@ my $parser = Graph::Simple::Parser->new();
 is (ref($parser), 'Graph::Simple::Parser');
 is ($parser->error(), '', 'no error yet');
 
+#############################################################################
+# matching nodes
+
+my $node_qr = $parser->_match_node();
+
+like ('[]', $node_qr, '[] is a node');
+like ('[ ]', $node_qr, '[ ] is a node');
+
+#############################################################################
+# general pattern tests
+
 my $line = 0;
 
 foreach (<DATA>)
@@ -41,6 +52,7 @@ foreach (<DATA>)
   my $txt = $in;
   $txt =~ s/\\n/\n/g;				# insert real newlines
 
+  Graph::Simple::Node->_reset_id();		# to get "#0" for each test
   my $graph = $parser->from_text($txt);		# reuse parser object
 
   if (!defined $graph)
@@ -71,6 +83,13 @@ foreach (<DATA>)
 
 __DATA__
 |0
+# anon nodes
+[]|1,#0
+[]->[]|2,#0,#1
+[Bonn]->[]|2,#1,Bonn
+[]->[Bonn]|2,#0,Bonn
+[]->[Bonn]->[]|3,#0,#2,Bonn
+# normal tests
 [ Berlin ]|1,Berlin
 [Hamburg]|1,Hamburg
   [  Dresden  ]  |1,Dresden

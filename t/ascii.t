@@ -7,7 +7,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 25;
+   plan tests => 34;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -28,6 +28,8 @@ my @files = readdir(DIR); closedir(DIR);
 foreach my $f (@files)
   {
   next unless -f "in/$f";			# only files
+  
+  next unless $f =~ /\.txt/;			# ignore anything else
 
   print "# at $f\n";
   my $txt = readfile("in/$f");
@@ -40,6 +42,11 @@ foreach my $f (@files)
   $f =~ /^(\d+)/;
   my $nodes = $1;
 
+  if (!defined $graph)
+    {
+    warn ("Graph input was invalid: " . $parser->error());
+    next;
+    }
   is (scalar $graph->nodes(), $nodes, "$nodes nodes");
 
   my $ascii = $graph->as_ascii();

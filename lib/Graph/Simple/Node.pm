@@ -6,11 +6,9 @@
 package Graph::Simple::Node;
 
 use 5.006001;
+$VERSION = '0.07';
+
 use strict;
-
-use vars qw/$VERSION/;
-
-$VERSION = '0.06';
 
 #############################################################################
 
@@ -22,6 +20,7 @@ sub OBJ () { 'obj' };
   # protected vars
   my $id = 0;
   sub new_id { $id++; }
+  sub _reset_id { $id = 0; }
 }
 
 #############################################################################
@@ -99,6 +98,9 @@ sub _correct_w
 sub as_ascii
   {
   my ($self) = @_;
+
+  # invisible nodes
+  return "" if ($self->attribute('shape')||'') eq 'invisible';
 
   my $txt;
 
@@ -306,26 +308,14 @@ sub as_html
   $style =~ s/;\s$//;				# remove '; ' at end
   $html .= " style=\"$style\"" if $style;
 
-  my $title = $self->attribute('title');
-  my $autotitle = $self->attribute('autotitle');
-  if (!defined $title && defined $autotitle)
-    {
-    $title = $self->{name} if $autotitle eq 'name';
-    # defined to avoid overriding "name" with the non-existant label attribute
-    $title = $self->{att}->{label} if $autotitle eq 'label' && defined $self->{att}->{label};
-    $title = $self->{name} if $autotitle eq 'label' && !defined $self->{att}->{label};
-
-    warn ("'$autotitle' not allowed for attribute 'autotitle' on node $self->{name}")
-      if $autotitle !~ /^(name|label|none)\z/;
-    }
-  $title = '' unless defined $title;
+  my $title = $self->title();
 
   if ($title ne '')
     {
-    $title =~ s/"/''/g;				# remove quotation mark
+    $title =~ s/"/&#22;/g;			# replace quotation marks
     $html .= " title=\"$title\"";		# cell with mouse-over title
     }
-#  my $name = $self->{name};
+
   my $name = $self->label(); 
 
   if (!$noquote)
@@ -376,6 +366,32 @@ sub as_html
     $html .= ">$name</$tag>\n";
     }
   $html;
+  }
+
+sub title
+  {
+  # Returns a title of the node (or '', if none was set), which can be
+  # used for mouse-over titles
+
+  my $self = shift;
+
+  my $title = $self->attribute('title');
+  if (!defined $title)
+    {
+    my $autotitle = $self->attribute('autotitle');
+    if (defined $autotitle)
+      {
+      $title = $self->{name} if $autotitle eq 'name';
+      # defined to avoid overriding "name" with the non-existant label attribute
+      $title = $self->{att}->{label} if $autotitle eq 'label' && defined $self->{att}->{label};
+      $title = $self->{name} if $autotitle eq 'label' && !defined $self->{att}->{label};
+
+      warn ("'$autotitle' not allowed for attribute 'autotitle' on node $self->{name}")
+        if $autotitle !~ /^(name|label|none)\z/;
+      }
+    }
+  $title = '' unless defined $title;
+  $title;
   }
 
 #############################################################################
@@ -443,6 +459,8 @@ sub successors
   # return all nodes (as objects) we are linked to
   my $self = shift;
 
+  return () unless defined $self->{graph};
+
   my $g = $self->{graph}->{graph};
   return () unless defined $g;
 
@@ -461,6 +479,7 @@ sub predecessors
   # return all nodes (as objects) that link to us
   my $self = shift;
 
+  return () unless defined $self->{graph};
   my $g = $self->{graph}->{graph};
   return () unless defined $g;
 
@@ -514,6 +533,11 @@ sub attribute
     }
   
   # try "group.class" first:
+  if (ref($self->{graph}) eq 'HASH')
+    {
+    use Data::Dumper; print Dumper($self->{graph});
+    print join(" ", caller());
+    }
   my $att = $self->{graph}->attribute ($class, $atr);
 
   my $c = $class; $c =~ s/\.(.*)//;		# remove subclass
@@ -527,6 +551,14 @@ sub attribute
   $att;
   }
 
+sub del_attribute
+  {
+  my ($self, $atr) = @_;
+
+  delete $self->{att}->{$atr};
+  $self;
+  }
+  
 sub set_attribute
   {
   my ($self, $atr, $v) = @_;
@@ -618,7 +650,7 @@ __END__
 
 =head1 NAME
 
-Graph::Simple::Node - Represents a node (a box) in a simple graph
+Graph::Simple::Node - Represents a node in a simple graph
 
 =head1 SYNOPSIS
 
@@ -668,6 +700,20 @@ Return the node as a little box drawn in ASCII art as a string.
 	my $txt = $node->as_txt();
 
 Return the node in simple txt format, including attributes.
+
+=head2 as_svg()
+
+	my $svg = $node->as_svg();
+
+Returns the node as Scalable Vector Graphic. The actual code for
+that routine is defined L<Graph::Simple::As_svg.pm>.
+
+=head2 as_graphviz()
+
+	my $txt = $node->as_graphviz_txt();
+
+Returns the node as graphviz compatible text which can be feed
+to dot etc to create images.
 
 =head2 as_pure_txt()
 
@@ -730,6 +776,12 @@ Return the attributes of this node as text description.
 Sets the specified attribute of this (and only this!) node to the
 specified value.
 
+=head2 del_attribute()
+
+	$node->del_attribute('border');
+
+Deletes the specified attribute of this (and only this!) node.
+
 =head2 set_attributes()
 
 	$node->set_attributes( $hash );
@@ -749,6 +801,13 @@ Return the name of the node.
 
 Return the label of the node. If no label was set, returns the C<name>
 of the node.
+
+=head2 title()
+
+	my $title = $node->title();
+
+Returns a potential title that can be used for mouse-over effects.
+If no title was set (or autogenerated), will return an empty string.
 
 =head2 contents()
 

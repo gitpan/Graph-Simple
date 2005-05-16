@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 61;
+   plan tests => 65;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Node") or die($@);
@@ -27,6 +27,8 @@ can_ok ("Graph::Simple::Node", qw/
   x
   y
   class
+  title
+  del_attribute
   set_attribute
   set_attributes
   attribute
@@ -49,6 +51,7 @@ is ($node->x(), 0, 'x == 0');
 is ($node->y(), 0, 'x == 0');
 is ($node->label(), 'Node #0', 'label');
 is ($node->name(), 'Node #0', 'name');
+is ($node->title(), '', 'no title per default');
 is (join(",", $node->pos()), "0,0", 'pos = 0,0');
 is ($node->width(), undef, 'w = undef');	# no graph => thus no width yet
 is ($node->height(), 3, 'h = 3');
@@ -206,4 +209,23 @@ $node->add_to_groups($group);
 is ($node->group('foo'), $group, 'group foo');
 is ($node->groups(), 1, 'one group');
 
+#############################################################################
+# title tests
+
+$node->set_attribute('title', "foo title");
+
+is ($node->title(), 'foo title', 'foo title');
+
+$node->del_attribute('title');
+$node->set_attribute('autotitle', 'name');
+
+is ($node->title(), $node->name(), 'title equals name');
+
+#############################################################################
+# invisible nodes
+
+$node = Graph::Simple::Node->new( { name => "anon 0", label => 'X' } );
+$node->set_attribute('shape', "invisible");
+
+is ($node->as_ascii(), "", 'invisible text node');
 

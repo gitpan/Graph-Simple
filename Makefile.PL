@@ -34,7 +34,7 @@ WriteMakefile(
     VERSION_FROM      => 'lib/Graph/Simple.pm', # finds $VERSION
     PREREQ_PM         => {
 #	Graph::Layout::Aesthetic => 0.08,
-	Graph => 0.61,
+	Graph => 0.65,
 	},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Graph/Simple.pm', # retrieve abstract from module

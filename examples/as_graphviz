@@ -1,33 +1,30 @@
 #!/usr/bin/perl -w
 
-BEGIN { $|++; }
+# Convert an input file containing a Graph::Simple description to
+# graphviz output that can be feed to dot etc.
+
+# Example usage:
+#  examples/as_graphviz t/in/2nodes.txt | dot -Tpng >test.png
+
+BEGIN
+  {
+  $|++; # output buffer off
+  }
 
 use strict;
 use lib 'lib';
 use Graph::Simple::Parser;
 
-print "# Graph::Simple v$Graph::Simple::VERSION\n";
-
-my $parser = Graph::Simple::Parser->new( debug => 0 );
-
 my $file = shift;
-my $id = shift || '';
 
-my $graph = $parser->from_file( $file );
-
+print "# Graph::Simple v$Graph::Simple::VERSION\n";
 print "# input: '$file'\n";
 
+my $parser = Graph::Simple::Parser->new( debug => 0 );
+my $graph = $parser->from_file( $file );
+
 die ($parser->error()) unless defined $graph;
-
-$graph->id($id);
 $graph->layout();
-
 warn ($graph->error()) if $graph->error();
-
-print $graph->as_txt();
-
-print $graph->as_ascii(), "\n";
-
-print "<style type='text/css'>\n<!--\n", 
-      $graph->css(), "--></style>\n", $graph->as_html();
+print $graph->as_graphviz();
 

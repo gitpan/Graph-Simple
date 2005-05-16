@@ -1,8 +1,24 @@
 Revision history for Graph::Layout::Simple.
 
-2005-04-11 v0.14 Tels 357 tests - Lay, lay, lay, lay out the edges...
+2005-05-16 v0.15 Tels 422 tests - Make, make, make, make the invisible nodes...
+  * load the As_*() modules on-demand
+  * fixed NAME in As_graphviz
+  * add basic support for node shapes
+  * Node: add del_attribute(), as_svg(), title()
+  * Parser: check attributes more closely
+  * Parser: support [] for anonymous, invisible nodes
+  * added Graph::Simple::Node::Anon
+  * Graph: move code to prepare layout from as_ascii() to _prepare_layout()
+    since it can be reused by as_svg()
+  * as_html: deal better with empty graphs
+  * as_graphviz: default node shape is rectangular
+  * Node: successor/predecessor did corrupt nodes w/o a graph
+  * Node: add _reset_id() for testsuite
+  * require Graph 0.65
+
+2005-04-11 v0.14 Tels 354 tests - Lay, lay, lay, lay out the edges...
   * add experimental graphviz output
-  * require Graph 0.62
+  * require Graph 0.61
 
 2005-02-12 v0.13 Tels 345 tests - Group, group, group, group the nodes...
   * shorten CSS considerable (especially for graphs with groups)

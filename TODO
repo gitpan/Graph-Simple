@@ -9,12 +9,17 @@ Parser:
 
   * deal with " -> [ node ], [node2], [node3]"
   * parse nested graphs
+  * support for node-splitting ala:
+    "[ A | B | C ]" and
+    "[ A | B | C ||
+       D |   | F ]"
 
 Output:
 
 * as_ascii(): output group borders and labels
 * as_html(): output group labels
-* support different shapes (circle, box, rounded etc)
+* as_svg(): this is very incomplete.
+* better support for different shapes (circle, box, rounded etc)
 * shorten HTML ("id" instead "class"?)
 * "stretch" edges: after we know how wide a column is, we can go
   through all edges in that column and stretch them to fill the
@@ -23,6 +28,8 @@ Output:
 
 Layout:
 
+* allow user to specifiy prefered direction of edges, as well as
+  relatively placed nodes (in position relativ to another node)
 * rewrite high-level code
 * _trace_path() for bend edges (with one corner; and if X1 == X2 or
   Y1 == Y2, bend around two corners (U shaped))
@@ -35,6 +42,4 @@ Layout:
 Misc:
 
 * Add our format to Graph::ReadWrite
-* Add as_svg()
-* Finish graphviz output
 

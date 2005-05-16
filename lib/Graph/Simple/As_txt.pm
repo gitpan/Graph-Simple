@@ -17,7 +17,7 @@ package Graph::Simple;
 
 use strict;
 
-sub as_txt
+sub _as_txt
   {
   my ($self) = @_;
 

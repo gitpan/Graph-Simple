@@ -7,20 +7,18 @@
 package Graph::Simple;
 
 use 5.006001;
-use strict;
 use Graph::Simple::Node;
+use Graph::Simple::Node::Anon;
 use Graph::Simple::Edge;
 use Graph::Simple::Group;
 use Graph::Simple::Group::Cell qw/GROUP_MAX/;
 use Graph::Simple::Layout;
-use Graph::Simple::As_txt;
-use Graph::Simple::As_graphviz;
-use Graph 0.61;
+use Graph 0.63;
 use Graph::Directed;
 
-use vars qw/$VERSION/;
+$VERSION = '0.15';
 
-$VERSION = '0.14';
+use strict;
 
 # Name of attribute under which the pointer to each Node/Edge object is stored
 # If you change this, change it also in Node.pm!
@@ -339,6 +337,11 @@ sub css
     $css .= $css_txt if $done > 0;			# skip if no attributes at all
     }
 
+  # XXX TODO: we could skip this if we do not have anon nodes
+  # XXX TODO: this should make anon nodes invisible, but somehow doesn't
+  # work
+  $css .= "table.graph .node-anon { display: none; }\n";
+
   # Set attributes for all TDs that start with "group" (hyphen seperated,
   # so that group classes are something like "group-l-cities". The second rule
   # is for all TD without any class at all (these are the "filler" cells):
@@ -492,6 +495,8 @@ sub as_html
     $cols->{$x} = undef;
     }
   
+  $max_x = 1, $min_x = 1 unless defined $max_x;
+  
   # number of cells in the table, maximum  
   my $max_cells = $max_x - $min_x + 1;
   
@@ -582,14 +587,54 @@ sub as_ascii
   # convert the graph to pretty ASCII art
   my ($self) = shift;
 
-  $self->layout() unless defined $self->{score};
+  if (!defined $self->{score})
+    {
+    $self->layout();
+    }
+    
+  my ($rows,$cols,$max_x,$max_y,$cells) = $self->_prepare_layout();
 
-  # find out for each row and colum how big they are
+  # generate the actual framebuffer
+  my @fb = ();
+  for my $y (0..$max_y)
+    {
+    $fb[$y] = ' ' x $max_x;
+    }
 
-  # +--------+-----+------+
-  # | Berlin | --> | Bonn | 
-  # +--------+-----+------+
+  # insert all cells into it
+  foreach my $v (@$cells)
+    {
+    # get as ASCII box
+    my @lines = split /\n/, $v->as_ascii();
+    # get position from cell
+    my $x = $cols->{ $v->{x} };
+    my $y = $rows->{ $v->{y} };
+    for my $i (0 .. scalar @lines-1)
+      { 
+      substr($fb[$y+$i], $x, length($lines[$i])) = $lines[$i]; 
+      }
+    }
 
+  my $out = '';
+  for my $y (0..$max_y)
+    {
+    my $line = $fb[$y];
+    $line =~ s/\s+\z//;		# remove trailing whitespace
+    $out .= $line . "\n";
+    }
+  $out;				# return output
+  }
+
+sub _prepare_layout
+  {
+  # this method is used by as_ascii() ans as_svg() to find out the
+  # sizes and placement of the different cells (edges, nodes etc).
+  my $self = shift;
+
+  # Find out for each row and colum how big they are:
+  #   +--------+-----+------+
+  #   | Berlin | --> | Bonn | 
+  #   +--------+-----+------+
   # results in:
   #        w,  h,  x,  y
   # 0,0 => 10, 3,  0,  0
@@ -597,7 +642,8 @@ sub as_ascii
   # 2,0 => 8,  3,  16, 0
 
   # Technically, we also need to "compress" away non-existant columns/rows
-  # We achive that by rendering simply them with 0 size, so they are invisible
+  # We achive that by simply rendering them with size 0, so they become
+  # invisible.
 
   my $cells = $self->{cells};
   my $rows = {};
@@ -608,18 +654,18 @@ sub as_ascii
   for my $k (keys %$cells)
     {
     my ($x,$y) = split/,/, $k;
-    my $node = $cells->{$k};
+    my $cell = $cells->{$k};
 
     # Get all possible nodes from $cell (instead of nodes) because
-    # this also includes edge/group cells
-    push @V, $node;
+    # this also includes edge/group cells, too.
+    push @V, $cell;
 
-    # calc. w from length of name and border style (border style not known
+    # Calc. w from length of name and border style (border style not known
     # until parsing is complete since it can be overwritten anytime)
-    $node->_correct_w();
+    $cell->_correct_w();
 
-    my $w = $node->{w};
-    my $h = $node->{h};
+    my $w = $cell->{w};
+    my $h = $cell->{h};
 
     $rows->{$y} = $h if !defined $rows->{$y};
     $cols->{$x} = $w if !defined $cols->{$x};
@@ -645,7 +691,6 @@ sub as_ascii
     $pos += $s;
     }
 
-  my @fb = ();
   # find out max. dimensions for framebuffer
   my $max_y = 0; my $max_x = 0;
   foreach my $v (@V)
@@ -663,36 +708,37 @@ sub as_ascii
     $max_x = $m if $m > $max_x;
     }
 
-  # generate the actual framebuffer
-  for my $y (0..$max_y)
-    {
-    $fb[$y] = ' ' x $max_x;
-    }
 
-  # insert all cells into it
-  foreach my $v (@V)
-    {
-    # get as ASCII box
-    my @lines = split /\n/, $v->as_ascii();
-    # get position from cell
-    my $x = $cols->{ $v->{x} };
-    my $y = $rows->{ $v->{y} };
-    for my $i (0 .. scalar @lines-1)
-      { 
-      substr($fb[$y+$i], $x, length($lines[$i])) = $lines[$i]; 
-      }
-    }
+  # return what we found out:
 
-  my $out = '';
+  ($rows,$cols,$max_x,$max_y, \@V);
+  }
 
-  for my $y (0..$max_y)
-    {
-    my $line = $fb[$y];
-    $line =~ s/\s+\z//;		# remove trailing whitespace
-    $out .= $line . "\n";
-    }
+#############################################################################
+# as_txt, as_graphviz and as_svg
 
-  $out;
+sub as_graphviz
+  {
+
+  require Graph::Simple::As_graphviz;
+
+  _as_graphviz(@_);
+  }
+
+sub as_svg
+  {
+
+  require Graph::Simple::As_svg;
+
+  _as_svg(@_);
+  }
+
+sub as_txt
+  {
+
+  require Graph::Simple::As_txt;
+
+  _as_txt(@_);
   }
 
 #############################################################################
@@ -1324,13 +1370,19 @@ incoming edges.
 
 =head2 Grouping
 
-The output of the graphs in ASCII/HTML does not yet include the group
+The output of the graphs in ASCII does not yet include the group
 information.
+
+=head2 Other formats
+
+Formats other than ASCII and HTML are not yet complete in their
+implementation. If you notice any bugs or defiencies, please
+drop me a note!
 
 =head2 Layouter
 
-The layouter is quite simple, and buggy. Once the syntax and feature set
-are complete, it will be rewritten.
+The layouter is quite simple, and buggy. It needs a rewrite and this
+is planned to happen soon.
 
 =head1 LICENSE
 

@@ -12,7 +12,7 @@ use Graph::Simple;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 sub new
   {
@@ -81,7 +81,8 @@ sub from_text
 
   my $c = 'Graph::Simple::Node';
   my $e = 'Graph::Simple::Edge';
-  my $nr = -1;
+  $self->{line_nr} = -1;
+  $self->{anon_id} = 0;
 
   # regexps for the different parts
   my $qr_node = _match_node();
@@ -112,7 +113,7 @@ sub from_text
     
     if (@lines > 0)
       {
-      $nr++;
+      $self->{line_nr}++;
       $curline = shift @lines;
       next if $curline =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
       next if $curline =~ /^\s*\z/;	# empty line?
@@ -179,12 +180,13 @@ sub from_text
 
       if (@group_stack == 0)
         {
-        $self->error("Found unexpected group end at line $nr");
+        $self->parse_error("Found unexpected group end at line $self->{line_nr}");
         return undef;
         }
       my $group = pop @group_stack;
 
       my $a1 = $self->_parse_attributes($1||'');	# group attributes
+      return undef if $self->{error};
       $group->set_attributes($a1);
 
       $line =~ s/^$qr_group_end$qr_oatr//;
@@ -194,6 +196,7 @@ sub from_text
       {
       my $n1 = $1;
       my $a1 = $self->_parse_attributes($2||'');
+      return undef if $self->{error};
 
       my $node_a = $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
@@ -206,6 +209,7 @@ sub from_text
       {
       my $n1 = $1;
       my $a1 = $self->_parse_attributes($2||'');
+      return undef if $self->{error};
 
       my $node_a = $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
@@ -223,7 +227,9 @@ sub from_text
       my $ed2 = $4 || '';
       my $ea = $6 || '';				# save edge attributes
       my $a1 = $self->_parse_attributes($8||'');	# node attributes
+      return undef if $self->{error};
       $ea = $self->_parse_attributes($ea);		# parse edge attributes
+      return undef if $self->{error};
 
       # strip trailing spaces
       $en =~ s/\s*\z//;
@@ -285,16 +291,26 @@ sub _new_node
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
-  my $node = $graph->node($name);
-
-  if (!defined $node)
+  my $node;
+  if ($name eq '')
     {
-    $node = Graph::Simple::Node->new( { name => $name } );
+    # create a new anon node and add it to the graph
+    $node = Graph::Simple::Node::Anon->new();
     $graph->add_node($node); 
+    }
+  else
+    {
+    # try to find node with that name
+    $node = $graph->node($name);
+    # not found? so create a new one and add it to the graph
+    if (!defined $node)
+      {
+      $node = Graph::Simple::Node->new( { name => $name } );
+      $graph->add_node($node); 
+      }
     }
 
   $node->add_to_groups(@$group_stack) if @$group_stack != 0;
-
   $node->set_attributes ($att);
 
   $node;
@@ -326,7 +342,10 @@ sub _match_node
   {
   # return a regexp that matches something like " [ bonn ]" and returns
   # the inner text without the [] (might leave some spaces)
-  qr/\s*\[\s*([^\]]+?[^\\])\]/;
+
+  #           v--- for empty nodes
+  #            v-- normal nodes  
+  qr/\s*\[\s*(|[^\]]*?[^\\])\]/;
   }
 
 sub _match_group_start
@@ -376,9 +395,28 @@ sub _parse_attributes
 
     my ($name, $val) = ($1,$2);
 
+    $self->parse_error(1,$name,$val), return unless $self->valid_attribute($name,$val);
+
     $att->{$name} = $val;
     }
   $att;
+  }
+
+sub parse_error
+  {
+  # take a msg number, plus params, and throws an exception
+  my $self = shift;
+
+  # XXX TODO: should really use the msg nr mapping
+  my $msg = "Value '##param2##' for attribute '##param1##' is invalid";
+
+  my $i = 0;
+  foreach my $p (@_)
+    {
+    $msg =~ s/##param$i##/$p/g;
+    }
+
+  $self->error($msg . ' at line ' . $self->{line_nr});
   }
 
 sub error
@@ -387,6 +425,55 @@ sub error
 
   $self->{error} = $_[0] if defined $_[0];
   $self->{error};
+  }
+
+sub valid_attribute
+  {
+  # check that an attribute is valid
+  my ($self,$name,$value) = @_;
+
+  # different shapes:
+
+  return $value =~ 
+   /^(
+  circle|
+  diamond|
+  egg|
+  ellipse|
+  hexagon|
+  house|
+  invisible|
+  invhouse|
+  invtrapezium|
+  invtriangle|
+  octagon|
+  parallelogram|
+  pentagon|
+  point|
+  polygon|
+  triangle|
+  trapezium|
+  septagon|
+  tripleoctagon|
+  # simple box
+  box|
+  rect|
+  rectangle|
+  rounded|
+  # these are shape rect, border none
+  plaintext|
+  none
+  )/x if $name eq 'shape';
+
+  # these are not (yet?) supported:
+  # Mdiamond|
+  # Msquare|
+  # Mcircle|
+  # doublecircle|
+  # doubleoctagon|
+ 
+  # anything else is passed along for now
+  return 1; 
   }
 
 1;

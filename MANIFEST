@@ -17,11 +17,14 @@ examples/txt2ascii		parse text description and output it as ASCII art
 examples/base.css		needed for the output of syntax.pl
 examples/history.txt		test-graph for version comparisations
 examples/fun.tpl
+examples/as_graphviz
+t/anon.t
 t/ascii.t
 t/graph.t
 t/graphviz.t
 t/edge.t
 t/group.t
+t/html.t			HTML output
 t/layout.t
 t/node.t
 t/edge_cell.t
@@ -29,9 +32,11 @@ t/parser.t			general parser tests
 t/parse_att.t			test parsing attributes
 t/parse_edge.t			test parsing edges
 t/simple.t
+t/svg.t				SVG output
 t/syntax/0000.txt		syntax tests for the parser
 t/syntax/0010.txt
 t/syntax/0020.txt
+t/syntax/0021.txt
 t/syntax/0030.txt
 t/syntax/0040.txt
 t/syntax/0050.txt
@@ -77,6 +82,10 @@ t/in/4nodes.txt
 t/in/4_2x2nodes.txt
 t/in/4groups.txt
 t/in/4groups_class.txt
+t/in/2_invisible_left.txt
+t/in/2_invisible_right.txt
+t/in/3_invisible_both.txt
+t/in/README
 t/out/1node.txt
 t/out/2nodes.txt
 t/out/3nodes.txt
@@ -84,14 +93,21 @@ t/out/4nodes.txt
 t/out/4_2x2nodes.txt
 t/out/4groups.txt
 t/out/4groups_class.txt
+t/out/2_invisible_left.txt
+t/out/2_invisible_right.txt
+t/out/3_invisible_both.txt
 t/txt/4groups.txt
 t/txt/4groups_class.txt
+t/txt/2_invisible_left.txt
+t/txt/2_invisible_right.txt
+t/txt/3_invisible_both.txt
 lib/Graph/Simple.pm
 lib/Graph/Simple/Layout.pm	actual layout routines
 lib/Graph/Simple/As_txt.pm	code to generate textual description
 lib/Graph/Simple/As_graphviz.pm	code to generate textual description
 lib/Graph/Simple/Parser.pm
 lib/Graph/Simple/Node.pm
+lib/Graph/Simple/Node/Anon.pm
 lib/Graph/Simple/Node/Cell.pm
 lib/Graph/Simple/Edge.pm
 lib/Graph/Simple/Edge/Cell.pm

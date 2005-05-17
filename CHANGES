@@ -1,5 +1,10 @@
 Revision history for Graph::Layout::Simple.
 
+2005-05-17 v0.16 Tels 426 tests - Make, make, make, make the invisible nodes...
+  * forgot to include As_svg.pm
+  * Simple.pm: Note other formats in NAME and SYNOPSIS sections
+  * As_svg: small cleanups
+
 2005-05-16 v0.15 Tels 422 tests - Make, make, make, make the invisible nodes...
   * load the As_*() modules on-demand
   * fixed NAME in As_graphviz

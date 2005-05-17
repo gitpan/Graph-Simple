@@ -16,7 +16,7 @@ use Graph::Simple::Layout;
 use Graph 0.63;
 use Graph::Directed;
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 use strict;
 
@@ -846,7 +846,7 @@ sub groups
 __END__
 =head1 NAME
 
-Graph::Simple - Render graphs as ASCII or HTML
+Graph::Simple - Render graphs as ASCII, HTML, SVG or Graphviz
 
 =head1 SYNOPSIS
 
@@ -902,6 +902,15 @@ Graph::Simple - Render graphs as ASCII or HTML
 	# +--------+
 	# | Berlin |
 	# +--------+
+
+	# Other possibilities:
+
+	# SVG:
+	print $graph->as_svg( );
+
+	# Graphviz:
+	my $graphviz = $graph->as_graphviz();
+	`dot -o graph.png $graphviz`;
 
 =head1 DESCRIPTION
 

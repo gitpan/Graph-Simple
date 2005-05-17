@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 14;
+   plan tests => 18;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -23,7 +23,11 @@ is ($graph->edges(), 0, '0 edges');
 
 is (join (',', $graph->edges()), '', '0 edges');
 
+# this will load As_svg:
 my $svg = $graph->as_svg();
+
+# after loading As_svg, this should work:
+can_ok ('Graph::Simple::Node', qw/as_svg/);
 
 like ($svg, qr/enerated by/, 'looks like SVG');
 like ($svg, qr/<svg/, 'looks like SVG');
@@ -47,9 +51,21 @@ like ($graph->as_svg(), qr/Berlin/, 'contains Berlin');
 
 $bonn->set_attribute( 'shape' => 'circle' );
 
-like ($graph->as_svg(), qr/Bonn/, 'contains Bonn');
-like ($graph->as_svg(), qr/Berlin/, 'contains Bonn');
-like ($graph->as_svg(), qr/circle/, 'contains shape');
+$svg = $graph->as_svg();
+
+like ($svg, qr/Bonn/, 'contains Bonn');
+like ($svg, qr/Berlin/, 'contains Bonn');
+like ($svg, qr/circle/, 'contains circle shape');
+
+#print $graph->as_svg(),"\n";
+
+$bonn->set_attribute( 'shape' => 'rounded' );
+
+$svg = $graph->as_svg();
+
+like ($svg, qr/Bonn/, 'contains Bonn');
+like ($svg, qr/Berlin/, 'contains Bonn');
+like ($svg, qr/rect/, 'contains rect shape');
 
 #print $graph->as_svg(),"\n";
 

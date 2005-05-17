@@ -103,8 +103,9 @@ t/txt/2_invisible_right.txt
 t/txt/3_invisible_both.txt
 lib/Graph/Simple.pm
 lib/Graph/Simple/Layout.pm	actual layout routines
-lib/Graph/Simple/As_txt.pm	code to generate textual description
-lib/Graph/Simple/As_graphviz.pm	code to generate textual description
+lib/Graph/Simple/As_txt.pm	generate textual description
+lib/Graph/Simple/As_graphviz.pm	generate graphviz text
+lib/Graph/Simple/As_svg.pm	generate SVG output
 lib/Graph/Simple/Parser.pm
 lib/Graph/Simple/Node.pm
 lib/Graph/Simple/Node/Anon.pm

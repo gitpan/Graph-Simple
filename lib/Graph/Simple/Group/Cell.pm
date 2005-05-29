@@ -241,9 +241,9 @@ sub error
 # on whether we have a border or not. But this is only known after parsing is
 # complete.
 
-sub _correct_w
+sub _correct_size
   {
-  my $self = shift;
+  my ($self,$format) = @_;
 
   my $border = $self->{group}->attribute('border') || 'none';
   if (!defined $self->{w})
@@ -258,26 +258,6 @@ sub _correct_w
       }
     }
 
-#    my $border = $self->{group}->attribute('border') || 'none';
-#    # XXX TODO
-#    my @lines = split /\n/, $self->_content(0);
-#    
-#    # find longest line
-#    my $chars = 0;
-#    foreach my $line (@lines)
-#      {
-#      $chars = length($line) if length($line) > $chars;
-#      }
-#
-#    if ($border eq 'none')
-#      {
-#      $self->{w} = $chars + 1;
-#      }
-##    else
-#      {
-#      $self->{w} = $chars + 4;
-#      }
-#    }
   }
 
 #############################################################################
@@ -382,11 +362,8 @@ L<Graph::Simple>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
 
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the terms of the GPL. See the LICENSE file for more details.
+See the LICENSE file for more details.
 
 =cut

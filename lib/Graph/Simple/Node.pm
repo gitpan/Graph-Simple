@@ -6,7 +6,7 @@
 package Graph::Simple::Node;
 
 use 5.006001;
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 use strict;
 
@@ -54,10 +54,16 @@ sub _init
   $self->{att} = { };
   $self->{class} = 'node';		# default class
 
-  # XXX TODO check arguments
+  $self->{contains} = undef;
+  $self->{origin} = undef;	# not relative to any other node
+  $self->{dx} = 0;		# relative to no other node
+  $self->{dy} = 0;
+ 
+  # XXX TODO check arguments (and better handling)
   foreach my $k (keys %$args)
     {
     $self->{$k} = $args->{$k};
+    $self->{att}->{$k} = $args->{$k} if $k eq 'label';
     }
   
   $self->{error} = '';
@@ -67,32 +73,107 @@ sub _init
   
   $self->{x} = 0;
   $self->{y} = 0;
-  
+ 
+  # XXX TODO: these could be left undef (to save memory) until needed 
   $self->{out} = {};
   $self->{in} = {};
-  
-  $self->{contains} = undef;
   $self->{groups} = {};
- 
+  # $self->{clusters} = {};
+  
   $self;
   }
 
-sub _correct_w
+sub _correct_size
   {
+  # correct {w} and {h}, depending in the output format
   my $self = shift;
 
   if (!defined $self->{w})
     {
+    my $txt = $self->label();
+
+    my ($w,$h) = $self->dimensions();
     my $border = $self->attribute('border') || 'none';
     if ($border eq 'none')
       {
-      $self->{w} = length($self->{name}) + 2;
+      $self->{w} = $w + 2;
+      $self->{h} = $h;
       }
     else
       {
-      $self->{w} = length($self->{name}) + 4;
+      $self->{w} = $w + 4;
+      $self->{h} = $h + 2;
       }
     }
+  }
+
+sub place
+  {
+  # Tries to place the node at position ($x,$y) by checking that
+  # $cells->{"$x,$y"} is still free. If the node belongs to a cluster,
+  # checks all nodes of the cluster (and when all of them can be
+  # placed simultanously, does so).
+  # Returns true if the operation succeeded, otherwise false.
+  my ($self,$x,$y,$cells) = @_;
+
+  # node cannot be placed here
+  return 0 if exists $cells->{"$x,$y"};
+
+  # belongs to a cluster => check all nodes
+  if (exists $self->{cluster} && defined $self->{cluster})
+    {
+    # the coordinates of the origin node
+    my $ox = $x + $self->{dx};
+    my $oy = $y + $self->{dy};
+    
+    my @nodes = $self->{cluster}->nodes();
+    foreach my $node (@nodes)
+      {
+      my $x = $node->{dx} + $ox;
+      my $y = $node->{dy} + $oy;
+#      print STDERR "# checking $x,$y against $node->{name}\n";
+      return 0 if exists $cells->{"$x,$y"};	# cell already blocked
+      }
+
+    # place all the other nodes 
+    foreach my $node (@nodes)
+      {
+      my $x = $node->{dx} + $ox;
+      my $y = $node->{dy} + $oy;
+      $node->{x} = $x;
+      $node->{y} = $y;
+      $cells->{"$x,$y"} = $node;
+      }
+    # we return early here, because $self was already handled above
+    return 1;
+    }
+
+  $self->{x} = $x;
+  $self->{y} = $y;
+  $cells->{"$x,$y"} = $self;
+
+  1;
+  }
+
+#############################################################################
+
+sub _formatted_label
+  {
+  my $self = shift;
+
+  my $name = $self->label();
+  $name =~ s/\\n/\n/g;			# insert newlines
+
+  # split into lines, remove extranous spacing
+  my @lines = split /\n/, $name;
+  my $i = 0;
+  while ($i < scalar @lines)
+    {
+    $lines[$i] =~ s/^\s+//;			# remove spaces at front
+    $lines[$i] =~ s/^\s+$//;			# remove spaces at end
+    $i++;
+    }
+  @lines;
   }
 
 sub as_ascii
@@ -102,34 +183,33 @@ sub as_ascii
   # invisible nodes
   return "" if ($self->attribute('shape')||'') eq 'invisible';
 
-  my $txt;
-
-  my $name = $self->{name};
-
-  # XXX TODO: handle length("$l") < $w in code below
- 
   my $border = $self->attribute('border') || 'none';
 
   # XXX TODO: borders for groups in ASCII output
   $border = 'none' if ref($self) =~ /Group/;
 
+  # XXX TODO: should center text instead of left-align
+  my @lines = $self->_formatted_label();
+
+  my $txt;
   if ($border eq 'none')
     {
     # 'Sample'
     $txt = "";
-    for my $l (split /\n/, $name)
+    for my $l (@lines)
       {
       $txt .= "$l\n";
       }
     }
-  elsif ($border =~ 'solid')
+  elsif ($border =~ /solid/)
     {
     # +--------+
     # | Sample |
     # +--------+
     $txt = '+' . '-' x ($self->{w}-2) . "+\n";
-    for my $l (split /\n/, $name)
+    for my $l (@lines)
       {
+      $l .= ' ' while length($l) < ($self->{w}-4); 
       $txt .= "| $l |\n";
       }
     $txt .= '+' . '-' x ($self->{w}-2) . "+";
@@ -140,8 +220,9 @@ sub as_ascii
     # : Sample :
     # ..........
     $txt = '.' . '.' x ($self->{w}-2) . ".\n";
-    for my $l (split /\n/, $name)
+    for my $l (@lines)
       {
+      $l .= ' ' while length($l) < ($self->{w}-4); 
       $txt .= ": $l :\n";
       }
     $txt .= '.' . '.' x ($self->{w}-2) . ".";
@@ -195,75 +276,26 @@ sub attributes_as_txt
   $att;
   }
 
-sub attributes_as_graphviz
-  {
-  # return the attributes of this node as text description
-  my $self = shift;
-
-  my $att = '';
-  my $class = $self->class();
-  my $a = $self->{att};
-  for my $atr (sort keys %$a)
-    {
-    # attribute not defined
-    next if !defined $a->{$atr};
-
-    # attribute defined, but same as default
-    if (defined $self->{graph})
-      {
-      my $DEF = $self->{graph}->attribute ($class, $atr);
-      next if defined $DEF && $a->{$atr} eq $DEF;
-      }
-
-    my $val = $a->{$atr};
-    # encode critical characters
-    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
-
-    $att .= "$atr=$val, ";
-    }
-  # include our subclass as attribute
-  $att .= "class: $1; " if $class =~ /\.(\w+)/;
-  
-  $att =~ s/,\s$//; 		# remove last ","
-
-  # generate attribute text if nec. 
-  $att = ' [ ' . $att . ' ]' if $att ne '';
-
-  $att;
-  }
-
 sub as_pure_txt
   {
   my $self = shift;
   
-  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+  my $name = $self->{name};
 
   # quote special chars in name
-  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+  $name =~ s/([\[\]\|\{\}\#])/\\$1/g;
 
   '[ ' .  $name . ' ]';
-  }
-
-sub as_graphviz_txt
-  {
-  my $self = shift;
-  
-  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
-
-  # quote special chars in name
-  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
-
-  '"' .  $name . '"';
   }
 
 sub as_txt
   {
   my $self = shift;
 
-  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+  my $name = $self->{name};
 
   # quote special chars in name
-  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+  $name =~ s/([\[\]\|\{\}\#])/\\$1/g;
 
   '[ ' .  $name . ' ]' . $self->attributes_as_txt();
   }
@@ -274,24 +306,57 @@ sub as_html
 
   $tag = 'td' unless defined $tag && $tag ne '';
   $id = '' unless defined $id;
+  my $a = $self->{att};
 
   # return yourself as HTML
+  my $shape = $self->attribute('shape') || '';
+
+  # shape: invisible; must result in an empty cell
+  if ($shape eq 'invisible')
+    {
+    return "<$tag style=\"border: none; background: inherit;\"></$tag>";
+    }
 
   my $class = $self->class();
   my $c = $class; $c =~ s/\./-/g;	# node.city => node-city
   my $html = "<$tag";
   $html .= " class='$c'" if $class ne '';
 
+  my $name = $self->label(); 
+
+#  print STDERR "at $self->{name} $noquote\n";
+  if (!$noquote)
+    {
+#    $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+
+    $name =~ s/&/&amp;/g;			# quote &
+    $name =~ s/>/&gt;/g;			# quote >
+    $name =~ s/</&lt;/g;			# quote <
+
+    $name =~ s/([^\\])\\n/$1\n/g;		# "\\n" to "\n" (but not "\\\n")
+    $name =~ s/\n/<br>/g;			# |\n|\nv => |<br>|<br>v
+    $name =~ s/^\s*<br>//;			# remove empty leading line
+    $name =~ s/<br>/<br \/>/g;			# correct <br>
+    }
+
   my $style = '';
-  my $a = $self->{att};
+
+  $style .= "-moz-border-radius: 10%; " if $shape eq 'rounded';
+  $style .= "-moz-border-radius: 100%; " if $shape eq 'ellipse';
+  if ($shape eq 'circle')
+    {
+    my $size = (length($name) * 0.7) . 'em';
+    $style .= "-moz-border-radius: 100%; height: $size; width: $size; ";
+    }
+
   for my $atr (sort keys %$a)
     {
     # attribute not defined
     next if !defined $a->{$atr};
-    
+
     # skip these:
     next if $atr =~
-	/^(label|linkbase|link|autolink|autotitle|title)\z/;
+	/^(label|linkbase|link|autolink|autotitle|title|shape)\z/;
 
     # attribute defined, but same as default (or node not in a graph)
 #    if (!defined $self->{graph})
@@ -314,22 +379,6 @@ sub as_html
     {
     $title =~ s/"/&#22;/g;			# replace quotation marks
     $html .= " title=\"$title\"";		# cell with mouse-over title
-    }
-
-  my $name = $self->label(); 
-
-  if (!$noquote)
-    {
-#    $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
-
-    $name =~ s/&/&amp;/g;			# quote &
-    $name =~ s/>/&gt;/g;			# quote >
-    $name =~ s/</&lt;/g;			# quote <
-
-    $name =~ s/([^\\])\\n/$1\n/g;		# "\\n" to "\n" (but not "\\\n")
-    $name =~ s/\n/<br>/g;			# |\n|\nv => |<br>|<br>v
-    $name =~ s/^\s*<br>//;			# remove empty leading line
-    $name =~ s/<br>/<br \/>/g;			# correct <br>
     }
 
   my $link = $self->attribute('link');
@@ -368,6 +417,9 @@ sub as_html
   $html;
   }
 
+#############################################################################
+# accessor methods
+
 sub title
   {
   # Returns a title of the node (or '', if none was set), which can be
@@ -393,9 +445,6 @@ sub title
   $title = '' unless defined $title;
   $title;
   }
-
-#############################################################################
-# accessor methods
 
 sub x
   {
@@ -440,6 +489,13 @@ sub pos
   ($self->{x}, $self->{y});
   }
 
+sub relpos
+  {
+  my $self = shift;
+
+  ($self->{dx}, $self->{dy});
+  }
+
 sub width
   {
   my $self = shift;
@@ -452,6 +508,24 @@ sub height
   my $self = shift;
 
   $self->{h};
+  }
+
+sub dimensions
+  {
+  # Returns the dimensions of the node/cell derived from the label (or name) in characters.
+  my $self = shift;
+
+  my $label = $self->{att}->{label}; $label = $self->{name} unless defined $label;
+  $label =~ s/\\n/\n/g;
+
+  my @lines = split /\n/, $label;
+  my $w = 0; my $h = scalar @lines;
+  foreach my $line (@lines)
+    {
+    $line =~ s/^\s+//; $line =~ s/\s+$//;		# rem spaces
+    $w = length($line) if length($line) > $w;
+    }
+  ($w,$h);
   }
 
 sub successors
@@ -513,9 +587,28 @@ sub sub_class
   $1;
   }
 
+sub origin
+  {
+  # Returns node that this node is relative to (or undef, if not part of
+  # any cluster)
+  my $self = shift;
+
+  if ($_[0])
+    {
+    $self->{origin} = shift;
+    }
+
+  $self->{origin};
+  }
+
+#############################################################################
+# attributes
+
 sub attribute
   {
   my ($self, $atr) = @_;
+
+  warn ("Node::attribute() takes only one argument, did you mean set_attribute()?") if @_ > 2;
 
   return $self->{att}->{$atr} if exists $self->{att}->{$atr};
 
@@ -533,11 +626,12 @@ sub attribute
     }
   
   # try "group.class" first:
-  if (ref($self->{graph}) eq 'HASH')
-    {
-    use Data::Dumper; print Dumper($self->{graph});
-    print join(" ", caller());
-    }
+#  if (ref($self->{graph}) eq 'HASH')
+#    {
+#    use Data::Dumper; print Dumper($self->{graph});
+#    print join(" ", caller());
+#    }
+
   my $att = $self->{graph}->attribute ($class, $atr);
 
   my $c = $class; $c =~ s/\.(.*)//;		# remove subclass
@@ -563,6 +657,8 @@ sub set_attribute
   {
   my ($self, $atr, $v) = @_;
   
+  warn ("Illegal attribute 'name' in Node::set_attribute()") if $atr eq 'name';
+ 
   my $val = $v;
   # remove quotation marks
   $val =~ s/^["']//;
@@ -596,7 +692,9 @@ sub set_attributes
     }
   $self;
   }
-  
+
+#############################################################################
+
 sub groups
   {
   # in scalar context, return number of groups this node belongs to
@@ -632,6 +730,7 @@ sub add_to_groups
 
   for my $group (@groups)
     {
+    # if passed a group name, create or find group object
     if (!ref($group) && $graph)
       {
       my $g = $graph->group($group);
@@ -643,6 +742,40 @@ sub add_to_groups
     $group->add_node($self);
     }
   $self;
+  }
+
+#############################################################################
+# cluster handling
+
+sub add_to_cluster
+  {
+  my ($self,$cluster) = @_;
+
+  my $graph = $self->{graph};				# shortcut
+
+  # if passed a cluster name, create or find cluster object
+  if (!ref($cluster) && $graph)
+    {
+    my $g = $graph->cluster($cluster);
+    $g = Graph::Simple::Cluster->new( { name => $cluster } ) unless defined $g;
+    $cluster = $g;
+    }
+
+  # store the cluster
+  $self->{cluster} = $cluster;
+  $cluster->add_node($self);
+  $self;
+  }
+
+sub cluster
+  {
+  # set/get the cluster
+  my ($self) = shift;
+
+  $self->{cluster} = shift if $_[0];
+  
+  # return the cluster
+  $self->{cluster};
   }
 
 1;
@@ -809,6 +942,13 @@ of the node.
 Returns a potential title that can be used for mouse-over effects.
 If no title was set (or autogenerated), will return an empty string.
 
+=head2 dimensions()
+
+	my ($w,$h) = $node->dimensions();
+
+Returns the dimensions of the node/cell derived from the label (or name) in characters.
+Assumes the label/name has literal '\n' replaced by "\n".
+
 =head2 contents()
 
 	my $contents = $node->contents();
@@ -833,6 +973,14 @@ Returns the height of the node. This is a unitless number.
 
 Returns the position of the node. Initially, this is undef, and will be
 set from C<Graph::Simple::layout>.
+
+=head2 relpos()
+
+	my ($dx,$dy) = $node->relpos();
+
+Returns the position of the node relativ to the origin. For the origin node
+itself (see L<origin()> or for nodes not belonging to any cluster, returns
+C<<0,0>>.
 
 =head2 x()
 
@@ -866,6 +1014,41 @@ Returns all nodes (as objects) that link to us.
 
 Returns all nodes (as objects) that we are linking to.
 
+=head2 add_to_groups()
+
+=head2 groups()
+
+	my @groups = $node->groups();
+
+In scalar context, return number of groups this node belongs to.
+In list context, returns all groups as list of objects, sorted by their
+name.
+
+=head2 group()
+
+=head2 cluster()
+
+	my $cluster = $node->cluster();
+
+	$node->cluster('clustername');
+	$node->cluster($cluster);
+
+Get or set the cluster that this node belongs to.
+
+=head2 place()
+
+	if ($node->place($x,$y,$cells))
+	  {
+	  ...
+	  }
+
+Tries to place the node at position C<< ($x,$y) >> by checking that
+C<<$cells->{"$x,$y"}>> is still free. If the node belongs to a cluster,
+checks all nodes of the cluster and when all of them can be
+placed without a problem, does so.
+
+Returns true if the operation succeeded, otherwise false.
+
 =head1 EXPORT
 
 None by default.
@@ -876,13 +1059,8 @@ L<Graph::Simple>.
 
 =head1 AUTHOR
 
-Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
 
-=head1 LICENSE
-
-Copyright (C) 2004 - 2005 by Tels
-
-This library is free software; you can redistribute it and/or modify
-it under the terms of the GPL. See the LICENSE file for more details.
+See the LICENSE file for more details.
 
 =cut

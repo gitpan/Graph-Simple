@@ -10,8 +10,8 @@ edge.intercity { link: Intercity; }
  # autolinks the edge to "Auto"
  [ Emden ] - Auto -> [ Schortens ]
  # autolinks this edge to "Bahn"
- [ Shortens ] --> { label: Bahn; } [ Oldenburg ]
+ [ Schortens ] --> { label: Bahn; } [ Oldenburg ]
  # no link (since no label)
- [ Shortens ] --> [ Cuxhaven ]
+ [ Schortens ] --> [ Cuxhaven ]
  # links to "Intercity"
  [ Oldenburg ] - IC -> { class: intercity; } [ Bremerhaven ]

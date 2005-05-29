@@ -33,22 +33,13 @@ would be rendered in ASCII as:
 
 The HTML output would look similiar except be more pretty :o)
 
-Examples
-========
+Manual
+======
 
-Run the following examples:
+The manual is in doc/manual in POD format. You can use doc/gen_manual
+to create an HTML version of it, or view the manual online at:
 
-ASCII output
-------------
-
-	perl examples/ascii.pl
-
-HTML output
------------
-
-Open test.html afterwards in your favourite browser:
-
-	perl examples/html.pl >test.html
+	http://bloodgate.com/perl/graph/manual/
 
 Many more examples and documentation, especially on integrating this into
 a Mediawiki installation, can be found at:
@@ -68,5 +59,5 @@ AUTHOR
 Copyright (C) 2004 - 2005 by Tels http://bloodgate.com/
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms of the GPL.
+it under the same terms of the GPL version 2.
 

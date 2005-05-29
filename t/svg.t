@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 18;
+   plan tests => 19;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -44,6 +44,8 @@ $graph->add_edge ($bonn, $berlin);
 like ($graph->as_svg(), qr/Bonn/, 'contains Bonn');
 like ($graph->as_svg(), qr/Berlin/, 'contains Berlin');
 
+like ($graph->as_svg(), qr/<text/, 'contains <text');
+
 #print $graph->as_svg(),"\n";
 
 #############################################################################
@@ -65,7 +67,7 @@ $svg = $graph->as_svg();
 
 like ($svg, qr/Bonn/, 'contains Bonn');
 like ($svg, qr/Berlin/, 'contains Bonn');
-like ($svg, qr/rect/, 'contains rect shape');
+like ($svg, qr/rect.*rx/, 'contains rect shape with rx/ry');
 
 #print $graph->as_svg(),"\n";
 

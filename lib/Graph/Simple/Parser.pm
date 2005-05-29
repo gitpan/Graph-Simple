@@ -12,7 +12,7 @@ use Graph::Simple;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 sub new
   {
@@ -51,6 +51,9 @@ sub reset
   my $self = shift;
 
   $self->{error} = '';
+  $self->{anon_id} = 0;
+  $self->{cluster_id} = '';		# each cluster gets a unique ID
+  $self->{line_nr} = -1;
 
   $self;
   }
@@ -81,8 +84,6 @@ sub from_text
 
   my $c = 'Graph::Simple::Node';
   my $e = 'Graph::Simple::Edge';
-  $self->{line_nr} = -1;
-  $self->{anon_id} = 0;
 
   # regexps for the different parts
   my $qr_node = _match_node();
@@ -94,10 +95,10 @@ sub from_text
   my $qr_group_start = _match_group_start();
   my $qr_group_end   = _match_group_end();
 
-  # for "[ 1 ] -> [ 2 ]" we push "2" on the stack and when we encounter
-  # " -> [ 3 ]" treat the stack as a node-list left of "3"
-  # in addition, for " [ 1 ], [ 2 ] => [ 3 ]", the leftstack will contain
-  # "1" and "2" when we encounter "3"
+  # After "[ 1 ] -> [ 2 ]" we push "2" on the stack and when we encounter
+  # " -> [ 3 ]" treat the stack as a node-list left of "3".
+  # In addition, for " [ 1 ], [ 2 ] => [ 3 ]", the stack will contain
+  # "1" and "2" when we encounter "3".
   my @stack = ();
 
   my @group_stack = ();	# all the (nested) groups we are currently in
@@ -115,14 +116,14 @@ sub from_text
       {
       $self->{line_nr}++;
       $curline = shift @lines;
-      next if $curline =~ /^\s*#/;	# starts with '#' or '\s+#' => comment so skip
-      next if $curline =~ /^\s*\z/;	# empty line?
+      next if $curline =~ /^\s*(#|\z)/;		# comment or empty line?
       }
     
     chomp($curline);
 
     my $line = $backbuffer . $curline;
 
+    # XXX TODO: this should *only* capture "fff" or "ffffff", but not "ffff":
     # convert #808080 into \#808080
     $line =~ s/:\s*(#[a-fA-F0-9]{3,6})/: \\$1/g;
 
@@ -159,10 +160,8 @@ sub from_text
       {
       my $gn = $1 || '';			# group name
 
-      # strip trailing spaces
-#      $gn =~ s/\s*\z//;
       # unquote special chars
-      $gn =~ s/\\([\[\(\{\}\]\)#])/$1/g;
+      $gn =~ s/\\([\[\(\{\}\]\)#\|])/$1/g;
 
       my $group = $graph->group ($gn);
       if (!defined $group)
@@ -198,9 +197,7 @@ sub from_text
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
 
-      my $node_a = $self->_new_node ($graph, $n1, \@group_stack, $a1);
-
-      @stack = ($node_a);
+      @stack = $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
       $line =~ s/^$qr_node$qr_oatr//;
       }
@@ -211,9 +208,7 @@ sub from_text
       my $a1 = $self->_parse_attributes($2||'');
       return undef if $self->{error};
 
-      my $node_a = $self->_new_node ($graph, $n1, \@group_stack, $a1);
-
-      @stack = ($node_a);
+      @stack = $self->_new_node ($graph, $n1, \@group_stack, $a1);
 
       $line =~ s/^$qr_comma$qr_node$qr_oatr//;
       }
@@ -234,7 +229,7 @@ sub from_text
       # strip trailing spaces
       $en =~ s/\s*\z//;
 
-      my $node_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
+      my @nodes_b = $self->_new_node ($graph, $n, \@group_stack, $a1);
       
       my $style = '--';	# default
       $style = '==' if $ed =~ /^=+\z/; 
@@ -250,12 +245,15 @@ sub from_text
 
 	# XXX TODO: what happens if edge already exists?
 
-        $graph->add_edge ( $node, $node_b, $edge );
+        foreach my $node_b (@nodes_b)
+          {
+          $graph->add_edge ( $node, $node_b, $edge );
+          }
         }
 #      print STDERR "# handled stack\n";
  
       # remember the right side
-      @stack = ($node_b);
+      @stack = @nodes_b;
 
       $line =~ s/^$qr_edge$qr_oatr$qr_node$qr_oatr//;
       }
@@ -281,39 +279,120 @@ sub from_text
 
 sub _new_node
   {
-  # create a new node unless it doesn't already exist. If the group stack
+  # Create a new node unless it doesn't already exist. If the group stack
   # contains entries, the new node appears first in this/these group(s), so
-  # add it to these groups.
+  # add it to these groups. If the newly created node contains "|", we split
+  # it up into several nodes and cluster these together.
   my ($self, $graph, $name, $group_stack, $att) = @_;
-      
+
   # strip trailing spaces
   $name =~ s/\s*\z//;
+  # collapse multiple spaces
+  $name =~ s/\s+/ /g;
   # unquote special chars
   $name =~ s/\\([\[\(\{\}\]\)#])/$1/g;
 
-  my $node;
+  my @rc = ();
+
   if ($name eq '')
     {
     # create a new anon node and add it to the graph
-    $node = Graph::Simple::Node::Anon->new();
-    $graph->add_node($node); 
+    my $node = Graph::Simple::Node::Anon->new();
+    $graph->add_node($node);
+    push @rc, $node;
+    }
+  elsif ($name =~ /[^\\]\|/)
+    {
+#    print STDERR "$name is to be split\n";
+
+    # build base name: "A|B |C||D" => "ABCD"
+    my $base_name = $name; $base_name =~ s/\s*\|\|?\s*//g;
+
+    # first one gets: "ABC", second one "ABC.1" and so on
+    # Try to find a unique cluster name in case some one get's creative and names the
+    # last part "-1":
+
+    my $g = 1;
+    while ($g == 1)
+      {
+      my $base_try = $base_name; $base_try .= '-' . $self->{cluster_id} if $self->{cluster_id};
+      last if !defined $graph->cluster($base_try);
+      $self->{cluster_id}++;
+      }
+    $base_name .= '-' . $self->{cluster_id} if $self->{cluster_id}; $self->{cluster_id}++;
+
+    my $cluster = Graph::Simple::Cluster->new( name => $base_name );
+    $graph->add_cluster($cluster); 
+
+    my $x = 0; my $y = 0; my $idx = 0;
+    my $remaining = $name;
+    while ($remaining ne '')
+      {
+      # XXX TODO: parsing of "\|" and "|" in one node
+      $remaining =~ s/^([^\|]*)(\|\|?|\z)//;
+      my $part = $1 || '';
+      my $sep = $2;
+
+#      print STDERR "# at part $part for $name ($idx=$x,$y) (remaining: $remaining)\n";
+
+      $part =~ s/^\s*//;	# rem spaces at front
+      $part =~ s/\s*$//;	# rem spaces at end
+#      $part =~ s/\\\|/\|/;	# unquote "|"
+
+      # if $part eq '', this node space should be empty, but still there.
+#      $part = ' ' if $part eq '';
+#      print STDERR "$base_name.$idx", " label: '$part'\n";
+
+      # unquoe \|
+#      print STDERR "# $base_name.$idx\n";
+      my $node_name = "$base_name.$idx"; #$node_name =~ s/\\\|/\|/g;
+#      print STDERR "# => $node_name\n";
+
+      my $node = Graph::Simple::Node->new( { name => $node_name, label => $part, dx => $x, dy => $y } );
+      $node->add_to_cluster($cluster);
+      $graph->add_node($node);
+      push @rc, $node;
+      if (@rc == 1)
+        {
+        # make second, third etc node relative to first one
+        $cluster->center_node($rc[0]);
+        }
+      else
+        {
+        $node->origin($rc[0]);		# relative to this one
+        } 
+      $idx++; $x++;
+      # || starts a new row:
+      if ($sep eq '||')
+        {
+        $x = 0; $y++;
+        }
+      } 
     }
   else
     {
+    # unquoe \|
+    $name =~ s/\\\|/\|/g;
+
     # try to find node with that name
-    $node = $graph->node($name);
+    my $node = $graph->node($name);
     # not found? so create a new one and add it to the graph
     if (!defined $node)
       {
       $node = Graph::Simple::Node->new( { name => $name } );
-      $graph->add_node($node); 
+      $graph->add_node($node);
       }
+    push @rc, $node;
     }
 
-  $node->add_to_groups(@$group_stack) if @$group_stack != 0;
-  $node->set_attributes ($att);
+  foreach my $node (@rc)
+    {
+    $node->add_to_groups(@$group_stack) if @$group_stack != 0;
+    $node->set_attributes ($att);
+    }
 
-  $node;
+  # return list of created nodes (usually one, but more for "A|B")
+  @rc;
   }
 
 sub _match_comma
@@ -406,14 +485,15 @@ sub parse_error
   {
   # take a msg number, plus params, and throws an exception
   my $self = shift;
+  my $msg_nr = shift;
 
   # XXX TODO: should really use the msg nr mapping
   my $msg = "Value '##param2##' for attribute '##param1##' is invalid";
 
-  my $i = 0;
+  my $i = 1;
   foreach my $p (@_)
     {
-    $msg =~ s/##param$i##/$p/g;
+    $msg =~ s/##param$i##/$p/g; $i++;
     }
 
   $self->error($msg . ' at line ' . $self->{line_nr});
@@ -606,9 +686,6 @@ L<Graph::Simple>.
 
 Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
 
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms of the GPL. See the LICENSE file for information.
+See the LICENSE file for information.
 
 =cut

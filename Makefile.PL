@@ -35,6 +35,7 @@ WriteMakefile(
     PREREQ_PM         => {
 #	Graph::Layout::Aesthetic => 0.08,
 	Graph => 0.65,
+	Pod::Simple => 3.02,
 	},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Graph/Simple.pm', # retrieve abstract from module

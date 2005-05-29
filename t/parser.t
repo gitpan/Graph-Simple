@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 51;
+   plan tests => 62;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Parser") or die($@);
@@ -23,10 +23,14 @@ can_ok ("Graph::Simple::Parser", qw/
 #############################################################################
 # parser object
 
-my $parser = Graph::Simple::Parser->new();
+my $parser = Graph::Simple::Parser->new( debug => 0 );
 
 is (ref($parser), 'Graph::Simple::Parser');
 is ($parser->error(), '', 'no error yet');
+
+$parser->{line_nr} = 0;
+is ($parser->parse_error(1,'foo','bar'),
+    "Value 'bar' for attribute 'foo' is invalid at line 0");
 
 #############################################################################
 # matching nodes
@@ -47,7 +51,8 @@ foreach (<DATA>)
   next if $_ =~ /^\s*\z/;			# skip empty lines
   next if $_ =~ /^#/;				# skip comments
 
-  my ($in,$result) = split /\|/, $_;
+  die ("Illegal line $line in testdata") unless $_ =~ /^(.*)\|([^\|]*)$/;
+  my ($in,$result) = ($1,$2);
 
   my $txt = $in;
   $txt =~ s/\\n/\n/g;				# insert real newlines
@@ -75,7 +80,8 @@ foreach (<DATA>)
 
   for my $n ( sort { $a->{name} cmp $b->{name} } ($graph->nodes(), $graph->edges()) )
     {
-    $got .= "," . $n->label() unless $n->label() eq '';
+    $got .= "," . $n->label() unless $n->label() eq '' || $n->label() eq $n->name();
+    $got .= "," . $n->name() unless $n->name() eq '';
     } 
   
   is ($got, $result, $in);
@@ -89,6 +95,19 @@ __DATA__
 [Bonn]->[]|2,#1,Bonn
 []->[Bonn]|2,#0,Bonn
 []->[Bonn]->[]|3,#0,#2,Bonn
+# multiple spaces in nodes
+[ Bonn and Berlin ]|1,Bonn and Berlin
+[ Bonn  and  Berlin  ]|1,Bonn and Berlin
+[  Bonn   and  Berlin  ]|1,Bonn and Berlin
+[  Bonn \n  and  Berlin  ]|1,Bonn and Berlin
+[  Bonn \n\n  and  Berlin  ]|1,Bonn and Berlin
+# split nodes
+[ A | B ]|2,A,AB.0,B,AB.1
+[ A | B | C ]|3,A,ABC.0,B,ABC.1,C,ABC.2
+[ A | B | C ] => [ A ]|4,A,A,ABC.0,B,ABC.1,C,ABC.2
+[ A | B | C ] => [ A ] [ A | B | C ] => [ A ]|7,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,A,ABC.0,B,ABC.1,C,ABC.2
+# unique cluster names, despite trickery in source with "ABC-1" as split node:
+[ A | B | C | -1 ] => [ A ] [ A | B | C ] => [ A ]|8,A,A,ABC-1.0,B,ABC-1.1,C,ABC-1.2,-1,ABC-1.3,A,ABC-2.0,B,ABC-2.1,C,ABC-2.2
 # normal tests
 [ Berlin ]|1,Berlin
 [Hamburg]|1,Hamburg

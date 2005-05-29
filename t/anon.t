@@ -33,9 +33,7 @@ can_ok ("Graph::Simple::Node::Anon", qw/
   set_attributes
   attribute
   attributes_as_txt
-  attributes_as_graphviz
   as_pure_txt
-  as_graphviz_txt
   group groups add_to_groups
   /);
 

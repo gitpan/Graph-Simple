@@ -1,0 +1,87 @@
+#!/usr/bin/perl -w
+
+# Create the HTML version of the manual from POD files in manual/
+
+print "gen_manual v0.01 (c) by Tels 2005. Part of Graph::Simple.\n\n";
+
+use strict;
+use File::Spec;
+use File::Copy;
+use Getopt::Long;
+
+my $time = time;
+
+my $output = File::Spec->catdir(qw/manual html/);
+my $backlink;
+my $options = scalar @ARGV;
+my $version;
+ 
+my $rc = GetOptions (
+	"backlink" => \$backlink,
+	"output=s"   => \$output,
+	"version"   => \$version,
+	);
+
+if (!$rc || $options == 0 || $version)
+  {
+  print "\n  Generate Graph::Simple manual in HTML. Usage:\n\n";
+  print "   ./gen_manual [--output=path] [--backlink]\n\n";
+  exit unless $rc;
+  exit if $version;
+  }
+
+if ($backlink)
+  {
+  $backlink = '--backlink="Main|../index.html"';
+  }
+else
+  {
+  $backlink = ''
+  }
+
+print "Arguments look good, generating manual.\n";
+
+print " Preparing output path $output...";
+
+if (!-d $output)
+  {
+  mkdir $output or die ("Cannot create output path '$output': $!");
+  }
+# copy the css file
+my $updir = File::Spec->updir();
+
+copy (
+  File::Spec->catfile($updir, qw/examples base.css/),
+  File::Spec->catfile($output, 'base.css')
+  );
+
+print "done.\n Creating the index file...";
+
+# create the index
+
+my @files = glob ('manual/*.pod');
+
+foreach my $in (sort @files)
+  {
+  }
+
+print "done.\n Creating the individual chapters:\n";
+my $cmd = File::Spec->catfile($updir, qw/examples pod2html/);
+
+foreach my $in (sort @files)
+  {
+  my ($volume,$directories,$file) = File::Spec->splitpath($in);
+
+  print "\n  $file\n";
+  $file =~ s/.pod/.html/;
+  my $out = File::Spec->catfile($output, $file);
+
+  # no backlinks for the index
+  my $back = $backlink; $back = '' if $in =~ /^index/i;
+
+  `$cmd $in $backlink >$out`;
+  }
+
+print " Done.\n";
+
+print "All done, took " . (time - $time) . " seconds. Enjoy!\n\n";

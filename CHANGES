@@ -1,5 +1,47 @@
 Revision history for Graph::Layout::Simple.
 
+2005-05-29 v0.17 Tels 559 tests - Edge, edge, edge, edge towards the node...
+  * rename examples/txt2ascii to examples/as_ascii
+  * fix examples/as_ascii to actually work
+  * add examples/as_html
+  * amend INSTALL, README
+  * add complete manual (doc/manual/*) and doc/gen_manual to generate HTML
+    version of the manual
+  * add Graph::Simple::Pod2HTML
+  * add Graph::Simple::Pod2TXT
+  * include tests for different node shapes
+  * suppress attribute "shape" in HTML output
+  * as_html: for "shape: invisible", output empty table cell
+  * as_html: for shape rounded and circle, use moz-rounded-border
+  * as_html: treat "\n" in edge labels properly
+  * as_svg: handle shape: invisible
+  * as_svg: fix output for "shape: rounded;"
+  * as_svg: fix general output to be valid
+  * as_txt: output [ name ], not wrongly [ label ]
+  * as_ascii: node size depends on label, not name
+  * as_ascii: handle multiline labels correctly
+  * as_ascii: avoid framebuffer underruns on certain layouts
+  * added Graph::Simple::Cluster - list of relatively positioned nodes
+  * Node  : added add_to_cluster(), origin(), cluster(), relpos(), place(),
+	    dimensions()
+  * Node  : allow label => 'label' to be passed to new()
+  * Node  : move as_graphviz() to As_graphviz.pm
+  * Node  : _correct_w() to _correct_size() and pass it the format name
+	    (ascii, svg etc)
+  * Simple: amended LIMITATIONS in pod
+  * Simple: added output_format(), output(), cluster(), clusters(),
+	    add_clusters()
+  * Parser: support clusters and autosplit nodes like "[ A |  | B || C ]"
+  * Parser: remove multiple spaces in node names to normalize them
+  * Parser: fix parse_error() and add tests for that
+  * Layout: make layouter more robust (better placement of nodes)
+  * Layout: finally find paths with one bend properly
+  * Layout: move pathfinding code to Graph::Simple::Layout::Scout
+  * Layout: move path management code to Graph::Simple::Layout::Path
+  * Layout: find path loops (from one node back to same node again)
+  * Layout: find U-shaped paths
+  * Edge  : add styles for EDGE_x_y (x = N/S, y = E/W)
+
 2005-05-17 v0.16 Tels 426 tests - Make, make, make, make the invisible nodes...
   * forgot to include As_svg.pm
   * Simple.pm: Note other formats in NAME and SYNOPSIS sections

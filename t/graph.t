@@ -5,11 +5,16 @@ use strict;
 
 BEGIN
    {
-   plan tests => 22;
+   plan tests => 28;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
    };
+
+can_ok ('Graph::Simple', qw/
+  output_format
+  output
+  /);
 
 #############################################################################
 my $graph = Graph::Simple->new();
@@ -17,11 +22,14 @@ my $graph = Graph::Simple->new();
 is (ref($graph), 'Graph::Simple');
 
 is ($graph->error(), '', 'no error yet');
+is ($graph->output_format(), 'html', 'default output format is html');
 
 is ($graph->nodes(), 0, '0 nodes');
 is ($graph->edges(), 0, '0 edges');
 
 is (join (',', $graph->edges()), '', '0 edges');
+
+like ($graph->output(), qr/table/, 'default output worked');
 
 my $bonn = Graph::Simple::Node->new( name => 'Bonn' );
 my $berlin = Graph::Simple::Node->new( 'Berlin' );
@@ -128,5 +136,18 @@ graph { border: 1px dashed; }
 [ Schweinfurt ] --> [ Bonn ]
 HERE
 , 'as_txt() for 3 nodes with 2 edges');
+
+#############################################################################
+# output and output_format:
+
+$graph = Graph::Simple->new();
+$graph->add_edge ($bonn, $berlin);
+
+like ($graph->output(), qr/table/, 'default output worked');
+
+$graph->set_attribute('graph', 'output', 'ascii');
+
+is ($graph->output_format(), 'ascii', 'output format changed to ascii');
+unlike ($graph->output(), qr/<table>/, 'ascii output worked');
 
 

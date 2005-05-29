@@ -109,6 +109,57 @@ sub _as_graphviz
 
   $txt .  "\n}\n";	# close the graph again
   }
+
+package Graph::Simple::Node;
+
+sub attributes_as_graphviz
+  {
+  # return the attributes of this node as text description
+  my $self = shift;
+
+  my $att = '';
+  my $class = $self->class();
+  my $a = $self->{att};
+  for my $atr (sort keys %$a)
+    {
+    # attribute not defined
+    next if !defined $a->{$atr};
+
+    # attribute defined, but same as default
+    if (defined $self->{graph})
+      {
+      my $DEF = $self->{graph}->attribute ($class, $atr);
+      next if defined $DEF && $a->{$atr} eq $DEF;
+      }
+
+    my $val = $a->{$atr};
+    # encode critical characters
+    $val =~ s/([;\x00-\x1f])/sprintf("%%%02x",ord($1))/eg;
+
+    $att .= "$atr=$val, ";
+    }
+  # include our subclass as attribute
+  $att .= "class: $1; " if $class =~ /\.(\w+)/;
+
+  $att =~ s/,\s$//;             # remove last ","
+
+  # generate attribute text if nec.
+  $att = ' [ ' . $att . ' ]' if $att ne '';
+
+  $att;
+  }
+
+sub as_graphviz_txt
+  {
+  my $self = shift;
+
+  my $name = $self->{att}->{label}; $name = $self->{name} unless defined $name;
+
+  # quote special chars in name
+  $name =~ s/([\[\]\(\)\{\}\#])/\\$1/g;
+
+  '"' .  $name . '"';
+  }
  
 1;
 __END__
@@ -151,13 +202,10 @@ Exports nothing.
 
 L<Graph::Simple>.
 
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms of the GPL. See the LICENSE file for information.
-
 =head1 AUTHOR
 
 Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+
+See the LICENSE file for information.
 
 =cut

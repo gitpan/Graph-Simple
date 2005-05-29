@@ -22,20 +22,15 @@ notify me immidiately. YOUR SYSTEM MIGHT GET COMPROMISED!
 When the package verified okay, then proceed:
 
         perl Makefile.PL
-        make
+
+If you get warnings about missing or outdated modules, then
+upgrade/install these first. Then run the testsuite:
+
         make test
 
 If all tests pass, install the package:
 
         sudo make install
-
-Dependencies
-------------
-
-This module requires these other modules and libraries:
-
-        Perl v5.6.1 or newer
-        Graph 0.55 or newer
 
 AUTHOR
 ======

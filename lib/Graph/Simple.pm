@@ -7,16 +7,17 @@
 package Graph::Simple;
 
 use 5.006001;
-use Graph::Simple::Node;
-use Graph::Simple::Node::Anon;
+use Graph::Simple::Cluster;
 use Graph::Simple::Edge;
 use Graph::Simple::Group;
 use Graph::Simple::Group::Cell qw/GROUP_MAX/;
 use Graph::Simple::Layout;
+use Graph::Simple::Node;
+use Graph::Simple::Node::Anon;
 use Graph 0.63;
 use Graph::Directed;
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 use strict;
 
@@ -47,6 +48,7 @@ sub _init
   $self->{id} = '';
   $self->{groups} = {};
 
+  $self->{output_format} = 'html';
   $self->{html_header} = '';
   $self->{html_footer} = '';
   $self->{html_style} = '';
@@ -100,7 +102,7 @@ sub _init
       }
     }
 
-  # internal graph object
+  # create our internal graph object
   $self->{graph} = Graph::Directed->new();
   
   foreach my $k (keys %$args)
@@ -225,6 +227,9 @@ sub set_attribute
   {
   my ($self, $class, $name, $val) = @_;
 
+  $name = 'undef' unless defined $name;
+  $val = 'undef' unless defined $val;
+
   # allowed classes and subclasses (except graph)
   if ($class !~ /^(node|group|edge|graph\z)/)
     {
@@ -232,9 +237,17 @@ sub set_attribute
     }
 
   # handle special attribute 'gid' like in "graph { gid: 123; }"
-  if ($class eq 'graph' && $name eq 'gid')
+  if ($class eq 'graph')
     {
-    $self->{id} = $val;
+    if ($name eq 'gid')
+      {
+      $self->{id} = $val;
+      }
+    # handle special attribute 'output' like in "graph { output: ascii; }"
+    if ($name eq 'output')
+      {
+      $self->{output_format} = $val;
+      }
     }
 
   $self->{att}->{$class}->{$name} = $val;
@@ -272,6 +285,32 @@ sub set_attributes
 #############################################################################
 #############################################################################
 # output (as_ascii, as_html) routines; as_txt is in As_txt.pm
+
+sub output_format
+  {
+  # set the outputformat
+  my $self = shift;
+
+  $self->{output_format} = shift if $_[0];
+  $self->{output_format};
+  }
+
+sub output
+  {
+  # general output routine, to output the graph as the format that was
+  # specified in the graph source itself
+  my $self = shift;
+
+  no strict 'refs';
+
+  my $method = 'as_' . $self->{output_format};
+  if (!$self->can($method))  
+    {
+    require Carp;
+    Carp::croak("Cannot find a method to generate '$self->{output_format}'");
+    }
+  $self->$method();
+  }
 
 sub css
   {
@@ -325,7 +364,7 @@ sub css
       {
       # skip these for CSS
       next if 
-	$att =~ /^(label|linkbase|(auto)?(link|title)|nodeclass)\z/;
+	$att =~ /^(label|linkbase|(auto)?(link|title)|nodeclass|shape)\z/;
 
       $done++;						# how many did we really?
       my $val = $a->{$class}->{$att};
@@ -530,7 +569,8 @@ sub as_html
       push @row, "  " . $node->as_html('td',$id);
       }
 
-    # remove trailing empty tag-pairs (but not if we have groups, becasuse
+    ######################################################################
+    # remove trailing empty tag-pairs (but not if we have groups, because
     # firefox treats non-existing cells different than empty cells. 
     if ($groups == 0)
       {
@@ -547,7 +587,7 @@ sub as_html
       $_ = "  <$tag><\/$tag>\n" unless defined $_;
       }
 
-    # combine equal columns
+    # now combine equal columns
     my $i = 0;
     while ($i < @row)
       {
@@ -564,6 +604,7 @@ sub as_html
         }
       $i++;
       }
+    ######################################################################
     
     # append row to output
     $html .= join('',@row) . " </tr>\n";
@@ -592,14 +633,16 @@ sub as_ascii
     $self->layout();
     }
     
-  my ($rows,$cols,$max_x,$max_y,$cells) = $self->_prepare_layout();
+  my ($rows,$cols,$max_x,$max_y,$cells) = $self->_prepare_layout('ascii');
 
   # generate the actual framebuffer
   my @fb = ();
-  for my $y (0..$max_y)
+  for my $y (0..$max_y+1)
     {
     $fb[$y] = ' ' x $max_x;
     }
+
+  print STDERR "# Allocating framebuffer $max_x x $max_y\n" if $self->{debug};
 
   # insert all cells into it
   foreach my $v (@$cells)
@@ -610,26 +653,32 @@ sub as_ascii
     my $x = $cols->{ $v->{x} };
     my $y = $rows->{ $v->{y} };
     for my $i (0 .. scalar @lines-1)
-      { 
+      {
+      next if length($lines[$i]) == 0;
+      # XXX TODO: framebuffer shouldn't be to small!
+      $fb[$y+$i] = ' ' x $max_x if !defined $fb[$y+$i];
       substr($fb[$y+$i], $x, length($lines[$i])) = $lines[$i]; 
       }
     }
 
   my $out = '';
-  for my $y (0..$max_y)
+  for my $y (0..$max_y+1)
     {
     my $line = $fb[$y];
     $line =~ s/\s+\z//;		# remove trailing whitespace
     $out .= $line . "\n";
     }
+
+  $out =~ s/\n+\z/\n/;		# remove trailing empty lines
+
   $out;				# return output
   }
 
 sub _prepare_layout
   {
-  # this method is used by as_ascii() ans as_svg() to find out the
+  # this method is used by as_ascii() and as_svg() to find out the
   # sizes and placement of the different cells (edges, nodes etc).
-  my $self = shift;
+  my ($self,$format) = @_;
 
   # Find out for each row and colum how big they are:
   #   +--------+-----+------+
@@ -662,7 +711,7 @@ sub _prepare_layout
 
     # Calc. w from length of name and border style (border style not known
     # until parsing is complete since it can be overwritten anytime)
-    $cell->_correct_w();
+    $cell->_correct_size($format);
 
     my $w = $cell->{w};
     my $h = $cell->{h};
@@ -719,7 +768,6 @@ sub _prepare_layout
 
 sub as_graphviz
   {
-
   require Graph::Simple::As_graphviz;
 
   _as_graphviz(@_);
@@ -727,7 +775,6 @@ sub as_graphviz
 
 sub as_svg
   {
-
   require Graph::Simple::As_svg;
 
   _as_svg(@_);
@@ -735,7 +782,6 @@ sub as_svg
 
 sub as_txt
   {
-
   require Graph::Simple::As_txt;
 
   _as_txt(@_);
@@ -840,6 +886,58 @@ sub groups
     return @groups;
     }
   scalar keys %{$self->{groups}};
+  }
+
+#############################################################################
+# cluster management
+
+sub add_cluster
+  {
+  # add a cluster object
+  my ($self,$cluster) = @_;
+
+  # index under the cluster name for easier lookup
+  $self->{clusters}->{ $cluster->{name} } = $cluster;
+
+  # register cluster with ourself  
+  $cluster->{graph} = $self;
+ 
+  $self;
+  }
+
+sub del_cluster
+  {
+  # delete cluster
+  my ($self,$cluster) = @_;
+
+  delete $self->{clusters}->{ $cluster->{name} };
+ 
+  $self;
+  }
+
+sub cluster
+  {
+  # return cluster by name
+  my ($self,$name) = @_;
+
+  $self->{clusters}->{ $name };
+  }
+
+sub clusters
+  {
+  # return number of clusters (or clusters as object list)
+  my ($self) = @_;
+
+  if (wantarray)
+    {
+    my @clusters;
+    for my $g (sort keys %{$self->{clusters}})
+      {
+      push @clusters, $self->{clusters}->{$g};
+      }
+    return @clusters;
+    }
+  scalar keys %{$self->{clusters}};
   }
 
 1;
@@ -1292,7 +1390,7 @@ are limitations in the parser, which cannot yet handle the following features:
 =item node lists
 
 Node lists only work on the left side of an expression. E.g. the first line
-works, the second and third not:
+works, the second and third do not:
 
 	[ Bonn ], [ Hof ] -> [ Berlin ]
 	[ Frankfurt ] -> [ Hamburg ], [ Dresden ]
@@ -1300,20 +1398,34 @@ works, the second and third not:
 
 =back
 
+=head2 Double edges
+
+It is not yet possible to have more than one edge going from Node A to Node B
+as in the following picture:
+
+	             +---------+
+	  +--------> | Koblenz | <--+
+	  |	     +---------+    |
+	  |		|	    |
+	  |		v	    |
+	+------+     +--------+     |
+	| Bonn | --> | Berlin |     |
+	+------+     +--------+     |
+	  |			    |
+	  +-------------------------+
+
 =head2 Paths
 
 =over 2
 
 =item No crossing
 
-Currently edges (paths from node to node) cannot cross each other. This limits
-the kind of graphs you can do quite seriously.
+Currently edges (paths from node to node) cannot cross each other.
 
-=item No bends
+=item No double bends
 
-All nodes must be in straight line of sight (up, down, left or right) of each
-other - a bend cannot yet be generated. So the following graph outputs are not
-yet possible:
+All nodes must be either in straight line of sight (up, down, left or right) of
+each other or connectable by a path with at most two bends, like shown here:
 
 	+------+     +--------+
 	| Bonn | --> | Berlin |
@@ -1328,14 +1440,39 @@ yet possible:
 	+------+     +--------+      +--------+
 	| Bonn | --> | Berlin | -- > | Kassel |
 	+------+     +--------+      +--------+
-	  |				^
-	  |				|
-	  |				|
+	  |		|		^
+	  |		|		|
+	  |		v		|
+	  |          +--------+		|
+	  |	     | Ulm    |		|
+	  |          +--------+		|
 	  |				|
 	  +-----------------------------+
 
-Since the C<long edges> feature is already implemented, this should be easy
-to add. 
+Thus the following graph output is not yet possible:
+
+	             +---------+
+	  +--------> | Koblenz | <---------------+
+	  |	     +---------+		 |
+	  |		|			 |
+	  |		|			 |
+	  |		v			 |
+	+------+     +--------+      +--------+  |
+	| Bonn | --> | Berlin | -- > | Kassel |  |
+	+------+     +--------+      +--------+	 |
+	  |		^			 |
+	  |		|			 |
+	  v		|			 |
+	+------+     +---------+      		 |
+	| Ulm  | --> | Bautzen | 		 |
+	+------+     +---------+ 		 |
+	  |					 |
+	  |					 |
+	  +--------------------------------------+
+
+
+For that to work a general path-finding algorithm like C<< A* >> must
+be implemented.
 
 =item No joints
 
@@ -1353,6 +1490,45 @@ Currently it is not possible that an edge joins another edge like this:
 
 This means each node can have at most 4 edges leading to or from it.
 
+=item No optimizations
+
+The layouter will generate sometimes non-optimal layouts like this:
+
+	+------+     +--------+      +--------+
+	| Bonn | --> | Berlin | -- > | Kassel |
+	+------+     +--------+      +--------+
+	  |				^
+	  |				|
+	  |				|
+	  |				|
+	  +-----------------------------+
+
+The layout above should really be converted to this:
+
+	+------+     +--------+
+	| Bonn | --> | Berlin |
+	+------+     +--------+
+	  |            |
+	  |            |
+	  |            v
+	  |          +---------+
+	  +--------> | Kassel  |
+	             +---------+
+
+Other non-optimal layouts like this one will also appear sometimes:
+
+	+------+     +--------+
+	| Bonn | --> | Berlin |
+	+------+     +--------+
+	               ^
+	               |
+	               |
+	+---------+    |
+	| Kassel  | ---+
+	+---------+
+
+A second-stage optimizer that simplifies these layouts does not yet exist.
+
 =back
 
 All the flaws with the edges can be corrected easily, but there was simple
@@ -1363,12 +1539,6 @@ not enough time for that yet.
 A node is currently always one cell big. Overly broad/wide nodes, or nodes
 with multiple lines shoud occupy more than one cell. This would also
 enable them to have more than 4 incoming/outgoing edges.
-
-=head2 Distances
-
-Nodes are always placed 2 cells away from each other. If this fails, the node
-will be placed a random distance away, and this will usually cause the path
-tracing code to not find an edge between the two nodes.
 
 =head2 Placement
 
@@ -1388,15 +1558,11 @@ Formats other than ASCII and HTML are not yet complete in their
 implementation. If you notice any bugs or defiencies, please
 drop me a note!
 
-=head2 Layouter
-
-The layouter is quite simple, and buggy. It needs a rewrite and this
-is planned to happen soon.
-
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms of the GPL. See the LICENSE file for information.
+it under the same terms of the GPL version 2.
+See the LICENSE file for information.
 
 =head1 AUTHOR
 

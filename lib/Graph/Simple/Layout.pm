@@ -8,7 +8,7 @@ package Graph::Simple::Layout;
 
 use vars qw/$VERSION/;
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 #############################################################################
 #############################################################################
@@ -24,8 +24,17 @@ use Graph::Simple::Edge::Cell qw/
 
   EDGE_END_E EDGE_END_W EDGE_END_N EDGE_END_S
 
+  EDGE_N_E EDGE_N_W EDGE_S_E EDGE_S_W
+
   EDGE_HOR EDGE_VER EDGE_CROSS
  /;
+
+sub ACTION_NODE  () { 0; }	# place node somewhere
+sub ACTION_PLACE () { 1; }	# place node at specific location
+sub ACTION_TRACE () { 2; }	# trace path from src to dest
+
+use Graph::Simple::Layout::Scout;	# pathfinding
+use Graph::Simple::Layout::Path;	# path management
 
 #############################################################################
 # layout the graph
@@ -34,7 +43,11 @@ sub layout
   {
   my $self = shift;
 
-  # XXX todo: find a better layout for all the nodes
+  # protect the layout with a timeout:
+  
+  eval {
+    local $SIG{ALRM} = sub { die "layout did not finish in time\n" };
+    alarm($self->{timeout} || 5);
 
   ###########################################################################
   # prepare our stack of things we need to do before we are finished
@@ -47,11 +60,11 @@ sub layout
     {
     $n->{x} = undef;			# mark as not placed yet
     $n->{y} = undef;
-    push @todo, $n;			# node needs to be placed
+    push @todo, [ ACTION_NODE, $n ];		# node needs to be placed
     foreach my $o ($n->successors())
       {
-      print STDERR "push $n->{name} => $o->{name}\n" if $self->{debug};
-      push @todo, [ $n, $o ];		# paths to all targets need to be found
+      print STDERR "# push $n->{name} => $o->{name}\n" if $self->{debug};
+      push @todo, [ ACTION_TRACE, $n, $o ];	# paths to all targets need to be found
       }
     }
 
@@ -76,33 +89,42 @@ sub layout
     
     print STDERR "\n# Step $step: Score is $score\n" if $self->{debug};
 
-    # pop one action
-    my $action = shift @todo;
+    # pop one action and mark it as done
+    my $action = shift @todo; push @done, $action;
 
-    push @done, $action;
+    # get the action type (ACTION_PLACE etc)
+    my $action_type = $action->[0];
 
     my ($src, $dst, $mod);
 
     print STDERR "# Step $step: Action $action\n" if $self->{debug};
 
-    if (ref($action) ne 'ARRAY')
+    if ($action_type == ACTION_NODE)
       {
-      print STDERR "# step $step: got place '$action->{name}'\n" if $self->{debug};
-      # is node to be placed
-      if (!defined $action->{x})
+      my ($node) = $action->[1];
+      print STDERR "# step $step: got place '$node->{name}'\n" if $self->{debug};
+
+      # $action is node to be placed, generic placement at "random" location
+      if (!defined $node->{x})
         {
-        $mod = $self->_place_node( $cells, $action );
+        $mod = $self->_find_node_place( $cells, $node );
         }
       else
         {
         $mod = 0;				# already placed
         }
       }
-    else
+    elsif ($action_type == ACTION_PLACE)
+      {
+      my ($at, $node, $x,$y) = @$action;
+      # try to place node at $x, $y
+      next TRY if $node->place($x,$y,$cells);
+      }
+    elsif ($action_type == ACTION_TRACE)
       {
       # find a path to the target node
 
-      ($src,$dst) = @$action;
+      ($action_type,$src,$dst) = @$action;
 
       print STDERR "# step $step: got trace '$src->{name}' => '$dst->{name}'\n" if $self->{debug};
 
@@ -114,23 +136,41 @@ sub layout
 
         # put current action back
         unshift @todo, $action;
-        # insert action to place target beforehand
-        unshift @todo, $dst;
+
+	# if near-placement fails, place generic. So insert action to place
+	# target beforehand:
+        unshift @todo, [ ACTION_NODE, $dst ];
+
+	# try to place node around the source node (e.g. near)
+        my @tries = $self->_near_places($src, $cells);
+        while (@tries > 0)
+          {
+          my $x = shift @tries;
+          my $y = shift @tries;
+	  # action to place $dst at $x and $y
+	# XXX TODO
+#          unshift @todo, [ ACTION_PLACE, $dst, $x, $y ];
+          } 
         next TRY;
-        }
+	}        
 
       # find path (mod is score modifier, or undef if no path exists)
       $mod = $self->_trace_path( $src, $dst );
+      }
+    else
+      {
+      require Carp;
+      Carp::croak ("Illegal action $action->[0] on TODO stack");
       }
 
     if (!defined $mod)
       {
       # rewind stack
-      if (ref($action) ne 'ARRAY')
+      if (($action_type == ACTION_NODE || $action_type == ACTION_PLACE))
         { 
         print STDERR "# Step $step: Rewind stack for $action->{name}\n" if $self->{debug};
 
-        # free cell area (XXX TODO: nodes that occupy more than one area)
+        # free cells (XXX TODO: nodes that occupy more than one cell)
         delete $cells->{"$action->{x},$action->{y}"};
         # mark node as tobeplaced
         $action->{x} = undef;
@@ -145,14 +185,18 @@ sub layout
         print STDERR "# Step $step: Rewound\n" if $self->{debug};
           
         # if we couldn't find a path, we need to rewind one more action (just
-	# redoing the path would would fail again)
+	# redoing the path would would fail again!)
 
         unshift @todo, $action;
         unshift @todo, pop @done;
-        if (ref($todo[0]) && ref($todo[0]) ne 'ARRAY')
+
+        $action = $todo[0];
+        $action_type = $action->[0];
+
+        if (($action_type == ACTION_NODE || $action_type == ACTION_PLACE))
           {
+          # undo node placement
           print STDERR ref($todo[0]),"\n";;
-          my $action = $todo[0];
           delete $cells->{"$action->{x},$action->{y}"};
           # mark node as tobeplaced
           $action->{x} = undef;
@@ -161,10 +205,10 @@ sub layout
   	$tries--;
 	last TRY if $tries == 0;
         next TRY;
-        }
+        } 
       unshift @todo, $action;
       next TRY;
-      }
+      } 
 
     $score += $mod;
     print STDERR "# Step $step: Score is $score\n" if $self->{debug};
@@ -178,291 +222,10 @@ sub layout
 
   # fill in group info and return
   $self->_fill_group_cells($cells);
-  }
 
-sub _place_node
-  {
-  my ($self, $cells, $node) = @_;
-
-  print STDERR "# Finding place for $node->{name}\n" if $self->{debug};
-
-  # try to place node at upper left corner
-  my $x = 0;
-  my $y = 0;
-  if (!exists $cells->{"$x,$y"})
-    {
-    $cells->{"$x,$y"} = $node;
-    $node->{x} = $x;
-    $node->{y} = $y;
-    return 0;
-    }
-        
-  # try to place node near the predecessor
-  my @pre = $node->predecessors();
-  if (@pre == 1 && defined $pre[0]->{x})
-    {
-    my @tries = ( 
-	$pre[0]->{x} + 2, $pre[0]->{y},		# right
-	$pre[0]->{x}, $pre[0]->{y} + 2,		# down
-	$pre[0]->{x} - 2, $pre[0]->{y},		# left
-	$pre[0]->{x}, $pre[0]->{y} - 2,		# up
-      );
-
-    print STDERR "# Trying simple placement of $node->{name}\n" if $self->{debug};
-    while (@tries > 0)
-      {
-      my $x = shift @tries;
-      my $y = shift @tries;
-
-      if (!exists $cells->{"$x,$y"})
-        {
-        print STDERR "# Placing $node->{name} at $x,$y\n" if $self->{debug};
-        $cells->{"$x,$y"} = $node;
-        $node->{x} = $x;
-        $node->{y} = $y;
-        return 0;
-        }
-      }
-
-    # all simple possibilities exhausted
-    } 
-
-  # if no predecessors/incoming edges, try to place in column 0
-  if (@pre == 0)
-    {
-    my $y = 0;
-    while (exists $cells->{"0," . $y})
-      {
-      $y += 2;
-      }
-    $y += 1 if exists $cells->{"0," . ($y-1)};	# leave one space
-    print STDERR "# Placing $node->{name} at $x,$y\n" if $self->{debug};
-    $cells->{"$x,$y"} = $node;
-    $node->{x} = $x;
-    $node->{y} = $y;
-    return 0;
+    alarm(0);	# disable alarm
     }
 
-  # XXX TODO: 100 => 100000 and limit tries
-  # XXX TODO: try to place the node near the one it is linked to
-  while (!defined $node->{x})
-    {
-    my $x = int(rand(100));
-    my $y = int(rand(100));
-    if (!exists $cells->{"$x,$y"})
-      {
-      $cells->{"$x,$y"} = $node;
-      $node->{x} = $x;
-      $node->{y} = $y;
-      }
-    }
-  0;					# success 
-  }
-
-sub _trace_path
-  {
-  my ($self, $src, $dst) = @_;
-
-  my $cells = $self->{cells};
-
-  print STDERR "# Finding path from $src->{name} to $dst->{name}\n" if $self->{debug};
-  # find a free way from $src to $dst (both need to be placed)
-  my $mod = 0;
-
-#  print STDERR "src: $src->{x}, $src->{y} dst: $dst->{x}, $dst->{y}\n";
-
-  my ($dx,$dy,@coords) = $self->_trace_straight_path ($src, $dst);
-
-  if (@coords != 0)
-    {
-
-    # found a path
-
-    my $mod = 1;			# for straight paths: score +1
-    $mod++ if @coords == 1;		# for short paths: score +1
-
-    if ($src->{x} == $dst->{x}-2 && $src->{y} == $dst->{y})
-      {
-      $mod += 2;			# +2 if right
-      }
-   elsif ($src->{x} == $dst->{x} && $src->{y} == $dst->{y} - 2)
-      {
-      $mod += 1;			# +1 if down
-      }
-
-   my $x = $src->{x} + $dx;
-   my $y = $src->{y} + $dy;
-
-   my $edge = $self->edge($src,$dst);
-
-   # now for each coord, allocate the cell
-   if (@coords == 1)
-     {
-     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y);
-     }
-   else
-     {
-     # Longer path with at least two elements. So create all cells like
-     # "start" cell, "end" cell and intermidiate pieces
-     
-     while (@coords > 1)				# leave end piece
-       {
-       my ($x,$y,$type) = split /,/, shift @coords;
-       $self->_put_path($edge,$x,$y,$type);
-       }
-
-     my ($x,$y,$type) = split /,/, shift @coords;
-     # final edge element (end piece)
-     $self->_create_edge( $edge, $src, $dst, $dx, $dy, $x, $y, 'endpoint');
-     }
-    }
-  else
-    {
-    # XXX TODO
-    print STDERR "# Unable to find path from $src->{name} ($src->{x},$src->{y}) to $dst->{name} ($dst->{x},$dst->{y})\n";
-    sleep(1);
-    return undef;
-    }
-  $mod;
-  }
-
-sub _create_edge
-  {
-  my ($self,$edge, $src, $dst, $dx,$dy, $x,$y, $type) = @_;
-
-  my $s = $self->edge($src,$dst);
-
-  if (!defined $type)
-    {
-    # short path
-    $type = EDGE_SHORT_E if ($dx ==  1 && $dy ==  0);
-    $type = EDGE_SHORT_S if ($dx ==  0 && $dy ==  1);
-    $type = EDGE_SHORT_W if ($dx == -1 && $dy ==  0);
-    $type = EDGE_SHORT_N if ($dx ==  0 && $dy == -1);
-    }
-  elsif ($type eq 'endpoint')
-    {
-    # endpoint
-    $type = EDGE_END_E if ($dx ==  1 && $dy ==  0);
-    $type = EDGE_END_S if ($dx ==  0 && $dy ==  1);
-    $type = EDGE_END_W if ($dx == -1 && $dy ==  0);
-    $type = EDGE_END_N if ($dx ==  0 && $dy == -1);
-    }
-  elsif ($type eq 'startpoint')
-    {
-    # startingpoint
-    $type = EDGE_START_E if ($dx ==  1 && $dy ==  0);
-    $type = EDGE_START_S if ($dx ==  0 && $dy ==  1);
-    $type = EDGE_START_W if ($dx == -1 && $dy ==  0);
-    $type = EDGE_START_N if ($dx ==  0 && $dy == -1);
-    }
-
-  print STDERR "# Found simple path from $src->{name} to $dst->{name}\n" if $self->{debug};
-  
-  $self->_put_path($edge,$x,$y,$type);
-  }
-
-sub _put_path
-  {
-  my ($self,$edge,$x,$y,$type) = @_;
-
-  my $path = Graph::Simple::Edge::Cell->new( type => $type, edge => $edge, x => $x, y => $y );
-  $path->{graph} = $self;		# register path elements with ourself
-  $self->{cells}->{"$x,$y"} = $path;	# store in cells
-  }
-
-sub _trace_straight_path
-  {
-  my ($self, $src, $dst) = @_;
-
-  # check that a straigh path from point A to B exists
-  my ($x0, $y0) = ($src->{x}, $src->{y});
-  my ($x1, $y1) = ($dst->{x}, $dst->{y});
-
-  my $dx = ($x1 - $x0) <=> 0;
-  my $dy = ($y1 - $y0) <=> 0;
-    
-  # if ($dx == 0 && $dy == 0) then we have only a short edge
-
-  my $cells = $self->{cells};
-  my @coords;
-  my ($x,$y) = ($x0+$dx,$y0+$dy);			# starting pos
-
-  if ($dx != 0 && $dy != 0)
-    {
-    # straight path not possible, since x0 != x1 AND y0 != y1
-    # XXX TODO: try to trace a path with a bend
-
-    #           "  |"                        "|   "
-    # try first "--+" (aka hor => ver), then "+---" (aka ver => hor)
-    my $done = 0;
-
-    # try hor => ver
-    my $type = EDGE_HOR;
-
-    while ($x != $x1)
-      {
-      $done++, last if exists $cells->{"$x,$y"};	# cell already full
-
-      push @coords, "$x,$y," . $type;		# good one, is free
-      $x += $dx;				# next field
-#     print STDERR "at $x $y ($x0,$y0 => $x1,$y1) $dx $dy\n"; sleep(1);
-      };
-
-    if ($done == 0 && @coords > 0)
-      {
-      ($x,$y,$type) = split/,/, pop @coords;	# remove last step
-      # XXX TODO: generate proper bend
-      $type = EDGE_CROSS;
-      push @coords, "$x,$y," . $type;		# put in bend
-
-      while ($y != $y1)
-        {
-        $done++, last if exists $cells->{"$x,$y"};	# cell already full
-
-        push @coords, "$x,$y," . $type;		# good one, is free
-        $y += $dy;				# next field
-#         print STDERR "at $x $y $dx $dy\n"; sleep(1);
-        }
-      }
-
-    $done = 1;
-    if ($done != 0)
-      {
-      # try ver => hor
-      }
-    return () if $done > 0;			# couldn't find one
-    }
-
-  my $type = EDGE_HOR; $type = EDGE_VER if $dx == 0;	# - or |
-  do
-    {
-    # XXX TODO handle here crossing paths
-    return () if exists $cells->{"$x,$y"};	# cell already full
-
-    push @coords, "$x,$y," . $type;		# good one, is free
-    $x += $dx;					# next field
-    $y += $dy;
-    } while (($x != $x1) || ($y != $y1));
-  ($dx,$dy,@coords);				# return all fields of path
-  }
-
-sub _remove_path
-  {
-  # Take an edge, and remove all the cells it covers from the cells area
-  my ($self, $edge) = @_;
-
-  my $cells = $self->{cells};
-  my $covered = $edge->cells();
-
-  for my $key (keys %$covered)
-    {
-    # XXX TODO: handle crossed edges here differently (from CROSS => HOR
-    # or VER)
-    # free in our cells area
-    delete $cells->{$key};
-    }
-  $edge->clear_cells();
   }
 
 #############################################################################
@@ -644,13 +407,10 @@ Exports nothing.
 
 L<Graph::Simple>.
 
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms of the GPL. See the LICENSE file for information.
-
 =head1 AUTHOR
 
 Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+
+See the LICENSE file for information.
 
 =cut

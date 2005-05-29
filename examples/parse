@@ -8,10 +8,11 @@ use Graph::Simple::Parser;
 
 print "# Graph::Simple v$Graph::Simple::VERSION\n";
 
-my $parser = Graph::Simple::Parser->new( debug => 0 );
-
 my $file = shift;
 my $id = shift || '';
+my $debug = shift || 0;
+
+my $parser = Graph::Simple::Parser->new( debug => $debug );
 
 my $graph = $parser->from_file( $file );
 

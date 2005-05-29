@@ -103,11 +103,8 @@ L<Graph::Simple>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
 
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the terms of the GPL. See the LICENSE file for more details.
+See the LICENSE file for more details.
 
 =cut

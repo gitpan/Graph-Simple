@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 65;
+   plan tests => 81;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple::Node") or die($@);
@@ -18,6 +18,7 @@ can_ok ("Graph::Simple::Node", qw/
   error
   contains
   class
+  dimensions
   name
   successors
   predecessors
@@ -28,15 +29,17 @@ can_ok ("Graph::Simple::Node", qw/
   y
   class
   title
+  place
   del_attribute
   set_attribute
   set_attributes
   attribute
   attributes_as_txt
-  attributes_as_graphviz
   as_pure_txt
-  as_graphviz_txt
   group groups add_to_groups
+  add_to_cluster
+  cluster
+  origin
   /);
 
 #############################################################################
@@ -51,10 +54,17 @@ is ($node->x(), 0, 'x == 0');
 is ($node->y(), 0, 'x == 0');
 is ($node->label(), 'Node #0', 'label');
 is ($node->name(), 'Node #0', 'name');
+is ($node->class(), 'node', 'class node');
 is ($node->title(), '', 'no title per default');
 is (join(",", $node->pos()), "0,0", 'pos = 0,0');
 is ($node->width(), undef, 'w = undef');	# no graph => thus no width yet
 is ($node->height(), 3, 'h = 3');
+
+is (join(",",$node->dimensions()), "7,1", 'dimensions = (7,1)');
+
+is ($node->cluster(), undef, 'not clustered');
+is ($node->origin(), undef, 'not clustered');
+is (join(",",$node->relpos()), '0,0', 'not clustered');
 
 is (scalar $node->successors(), undef, 'no outgoing links');
 is (scalar $node->predecessors(), undef, 'no incoming links');
@@ -87,11 +97,18 @@ is ($node->as_txt(), '[ Node \#0 ]', 'as_txt');
 is ($node->as_html(), "<td class='node'>Node #0</td>\n",
  'as_html');
 
-# quoting of ()
+# no quoting of () nec.
 $node->{name} = 'Frankfurt (Oder)';
 
-is ($node->as_txt(), '[ Frankfurt \(Oder\) ]', 'as_txt');
+is ($node->as_txt(), '[ Frankfurt (Oder) ]', 'as_txt');
 is ($node->as_html(), "<td class='node'>Frankfurt (Oder)</td>\n",
+ 'as_html');
+
+# quoting of |
+$node->{name} = 'Frankfurt |-|';
+
+is ($node->as_txt(), '[ Frankfurt \|-\| ]', 'as_txt');
+is ($node->as_html(), "<td class='node'>Frankfurt |-|</td>\n",
  'as_html');
 
 # quoting of []
@@ -101,8 +118,18 @@ is ($node->as_txt(), '[ Frankfurt \[ \{ \#1 \} \] ]', 'as_txt');
 is ($node->as_html(), "<td class='node'>Frankfurt [ { #1 } ]</td>\n",
  'as_html');
 
-# reset name
+
+#############################################################################
+# as_txt with labels
+
+$node->set_attribute('label', 'thelabel');
+$node->{name} = 'name';
+
+is ($node->as_txt(), '[ name ] { label: thelabel; }', 'as_txt');
+
+# reset name for next tests
 $node->{name} = 'Node #0';
+$node->del_attribute('label');
 
 #############################################################################
 # as_txt/as_html w/ subclass and attributes
@@ -228,4 +255,30 @@ $node = Graph::Simple::Node->new( { name => "anon 0", label => 'X' } );
 $node->set_attribute('shape', "invisible");
 
 is ($node->as_ascii(), "", 'invisible text node');
+
+#############################################################################
+# as_ascii() and label vs name (bug until v0.16)
+
+$node = Graph::Simple::Node->new( { name => "Node #0", label => 'label' } );
+is ($node->label(), 'label', 'node label eq "label"');
+
+like ($node->as_ascii(), qr/label/, 'as_ascii uses label, not name');
+
+#############################################################################
+# node placement (unclustered)
+
+$node = Graph::Simple::Node->new();
+
+my $cells = { };
+
+is ($node->place(1,1,$cells), 1, 'node can be placed');
+
+is ($cells->{"1,1"}, $node, 'node was really placed');
+is (scalar keys %$cells, 1, 'one entry');
+
+is ($node->place(1,1,$cells), 0, 'node cannot be placed again');
+is ($cells->{"1,1"}, $node, 'node still there placed');
+is (scalar keys %$cells, 1, 'one entry');
+
+
 

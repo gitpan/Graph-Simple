@@ -9,35 +9,62 @@ Parser:
 
   * deal with " -> [ node ], [node2], [node3]"
   * parse nested graphs
-  * support for node-splitting ala:
-    "[ A | B | C ]" and
-    "[ A | B | C ||
-       D |   | F ]"
+  * support for node splitting ala:
+
+	[ A ] | [ B | C ] || [ D | E ]
+
+  * support for attribute lists on autosplit nodes ala:
+
+    "[ A || B | C ] { background: red,blue,green; }"
+
+* Nodes with both "|" and "\|" in their name are parsed wrongly
 
 Output:
 
+* support different edge starting point styles ala:
+
+  ------>  |------>   o----->   +------>   >>----->
+
+* as_txt(): output of node clusters is not optimal
+* as_html: node clusters have spacings between nodes:
+           The spacing comes from the filler cells to make groups
+	   work - argl!
 * as_ascii(): output group borders and labels
+* as_ascii(): node clusters need adjoining borders collapsed together
 * as_html(): output group labels
+* as_ascii(), as_html(): grow edges to be seemless
+* as_html: for shape: circle, find out real dimensions by splitting
+  the label into lines (instead of taking the overall label lenght
+  as the in-width) (see t/fun/0030.txt as an example of overwide
+  circles)
 * as_svg(): this is very incomplete.
 * better support for different shapes (circle, box, rounded etc)
+  in HTML/SVG/Graphviz
 * shorten HTML ("id" instead "class"?)
-* "stretch" edges: after we know how wide a column is, we can go
-  through all edges in that column and stretch them to fill the
-  entire width
 * add a class "link" to generated links (so they can be styled differently)
 
 Layout:
 
+* u-shaped path's could be shorter by one cell (when we create an edge cell
+  that is both an edge and an endpoint at the same time)
 * allow user to specifiy prefered direction of edges, as well as
   relatively placed nodes (in position relativ to another node)
 * rewrite high-level code
-* _trace_path() for bend edges (with one corner; and if X1 == X2 or
-  Y1 == Y2, bend around two corners (U shaped))
+* _trace_path(): paths with one bend need the correct corner-piece instead
+  of EDGE_CROSS
+* code to trace U-shaped paths can result in an endless loop
 * _trace_path(): use A* algorithmn as last resort to find path
-* find place for nodes by walking in increasing circles around the source
-  node
 * make nodes occupy more than one cell (for making very wide/very high nodes
   fit better, as well as allowing more than 4 edges in/out of one node)
+
+Optimizer:
+
+* write an optimizer, that can optimize an already found layout
+
+Manual:
+
+* finish the HTML conversion (Graph::Simple::Pod2HTML)
+* write the actual manual text (in chapters)
 
 Misc:
 

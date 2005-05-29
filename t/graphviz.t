@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 12;
+   plan tests => 13;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -24,6 +24,14 @@ is ($graph->edges(), 0, '0 edges');
 is (join (',', $graph->edges()), '', '0 edges');
 
 like ($graph->as_graphviz(), qr/digraph.*\{/, 'looks like digraph');
+
+#############################################################################
+# after first call to as_graphviz, these should now exist:
+
+can_ok ("Graph::Simple::Node", qw/
+  attributes_as_graphviz
+  as_graphviz_txt
+  /);
 
 #############################################################################
 # with some nodes

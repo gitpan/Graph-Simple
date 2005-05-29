@@ -3,7 +3,7 @@
  ] -> 
  [ 
    Berlin
-   \(Capital\)
+   (Capital)
  ]
  [
  Bonn 

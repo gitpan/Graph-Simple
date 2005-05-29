@@ -144,13 +144,10 @@ Exports nothing.
 
 L<Graph::Simple>.
 
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms of the GPL. See the LICENSE file for information.
-
 =head1 AUTHOR
 
 Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+
+See the LICENSE file for information.
 
 =cut

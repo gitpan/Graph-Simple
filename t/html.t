@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 11;
+   plan tests => 15;
    chdir 't' if -d 't';
    use lib '../lib';
    use_ok ("Graph::Simple") or die($@);
@@ -51,4 +51,27 @@ like ($html, qr/title="Bonn"/, 'contains title="Bonn"');
 unlike ($html, qr/title="Berlin"/, "doesn't contains title Berlin");
 
 #print $graph->as_svg(),"\n";
+
+#############################################################################
+# check that "shape:" does not appear in CSS or HTML
+
+$bonn->set_attribute( 'shape' => 'circle' );
+$graph->set_attribute ( 'node', 'shape', 'ellipse' );
+
+my $css = $graph->css();
+$html = $graph->as_html();
+
+unlike ($css, qr/shape/, 'shape does not appear in CSS');
+unlike ($html, qr/shape/, 'shape does not appear in HTML');
+
+#############################################################################
+# "shape: invisible" should result in an empty td tag w/ "border: none"
+
+$bonn->set_attribute( 'shape' => 'invisible' );
+
+$css = $graph->css();
+$html = $graph->as_html();
+
+unlike ($html, qr/display:\s*none/, 'shape invisible is not display: none');
+like ($html, qr/td.*border:\s*none/, 'shape invisible results in border: none');
 

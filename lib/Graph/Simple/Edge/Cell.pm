@@ -12,7 +12,7 @@ use Graph::Simple::Edge;
 use vars qw/$VERSION @EXPORT_OK @ISA/;
 @ISA = qw/Exporter Graph::Simple::Edge/;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 #############################################################################
 
@@ -48,6 +48,8 @@ sub EDGE_W_N_S		() { 22; }		#  |-	three-sided corner (W to S and N)
 
 sub EDGE_MAX_TYPE () { 22; }	# last valid type
 
+sub EDGE_LABEL_CELL	() { 0x1000; }		#  & with EDGE type to signal: label here
+
 @EXPORT_OK = qw/
   EDGE_SHORT_E
   EDGE_SHORT_W
@@ -77,6 +79,7 @@ sub EDGE_MAX_TYPE () { 22; }	# last valid type
   EDGE_E_N_S
   EDGE_W_N_S	
 
+  EDGE_LABEL_CELL
   /;
 
 my $edge_styles = 
@@ -104,13 +107,18 @@ my @edge_content =
   "\n |\n |\n",	"\n|\n|\n|\n|",			# EDGE_START_S
 
   "\n--> ",	'------>',			# EDGE_END_E
-  "^\n|\n|",	"^\n|\n|",			# EDGE_END_N
+  "  ^\n  |  \n  |",	"^\n|\n|",		# EDGE_END_N
   "\n <--",	'<------',			# EDGE_END_W
   " |\n |\n v",	"|\n|\nv",			# EDGE_END_S
 
-  '----',	'------',			# EDGE_HOR
-  " |\n |\n |\n |",	"|\n|\n|\n|\n|\n|",	# EDGE_VER
-  " |\n|\n|\n|",	"|\n|\n|\n|\n|\n|",	# EDGE_CROSS
+  "\n----",	'------',			# EDGE_HOR
+  " |\n |\n |\n |\n |",	"|\n|\n|",		# EDGE_VER
+  " |\n-+-\n|",	"|\n--+--\n|",			# EDGE_CROSS
+
+  " |\n +-",	"   |\n  +--",			# EDGE_N_E
+  " |\n-+",	"   |\n--+",			# EDGE_N_W
+  "\n +-\n |",	"\n  +--\n   |",		# EDGE_S_E
+  "\n-+\n |",	"\n--+\n   |",			# EDGE_S_W
   );
 
 #############################################################################
@@ -194,10 +202,14 @@ sub as_html
   my $id = $self->{graph}->{id};
 
   my $noquote = 0;
-  # if we have a label, and are a EDGE_SHORT_E/EDGE_SHORT_W
   my $label = $self->{att}->{label};
   $label = '' unless defined $label;
 
+  $label =~ s/\\n/<br>/g;
+
+  # XXX TODO: find out real size (aka length) of label
+
+  # if we have a label, and are a EDGE_SHORT_E/EDGE_SHORT_W
   my $type = $self->{type};
   if ($label ne '')
     {
@@ -211,7 +223,7 @@ sub as_html
       # twice the length of the label is about right, due to 0.7 * 0.8
       # (letter-spacing * font-size) being about 1.8 plus some spacing left/right
       my $length = int(2 + 0.90 * length($label));
-
+      
       $self->{name} = 
       "<span class='label'>$label</span><br>" .
       "<span class='line'>$left" . ($self->{style} x $length) . "$right</span>\n";
@@ -238,14 +250,6 @@ sub as_html
 
   # let Graph::Simple::Edge (aka Node) handle the output: 
   $self->SUPER::as_html($_[0], $_[1], $noquote);
-  }
-
-sub error
-  {
-  my $self = shift;
-
-  $self->{error} = $_[0] if defined $_[0];
-  $self->{error};
   }
 
 #############################################################################
@@ -285,9 +289,9 @@ sub type
 # on whether we have a border or not. But this is only known after parsing is
 # complete.
 
-sub _correct_w
+sub _correct_size
   {
-  my $self = shift;
+  my ($self,$format) = @_;
 
   if (!defined $self->{w})
     {
@@ -438,6 +442,8 @@ None by default. Can export the following on request:
   EDGE_E_N_S
   EDGE_W_N_S	
 
+  EDGE_LABEL_CELL
+
 =head1 TODO
 
 Different ASCII styles:
@@ -453,11 +459,8 @@ L<Graph::Simple>.
 
 =head1 AUTHOR
 
-Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>
+Copyright (C) 2004 - 2005 by Tels L<http://bloodgate.com>.
 
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the terms of the GPL. See the LICENSE file for more details.
+See the LICENSE file for more details.
 
 =cut

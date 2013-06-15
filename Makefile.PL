@@ -1,43 +1,63 @@
-use 5.006001;
-use ExtUtils::MakeMaker;
 
-sub MY::metafile {
-  package MY;
-  my $self = shift;
-  if (!eval { require YAML; 1 })
-  {
-    warn ("YAML not installed, 'make dist' will not override 'META.yml'.");
-    return $self->SUPER::metafile_target(@_);
-  };
+use strict;
+use warnings;
 
-  my $node = new YAML::Node {};
 
-  $node->{name}                 = $self->{DISTNAME};
-  $node->{version}              = $self->{VERSION};
-  $node->{version_from}         = $self->{VERSION_FROM};
-  $node->{license}              = 'gpl';
-  $node->{distribution_type}    = 'module';
-  $node->{generated_by}         = "$self->{DISTNAME} version $self->{VERSION}";
-  $node->{installdirs}          = 'site';
-  $node->{requires}             = $self->{PREREQ_PM};
 
-  my $dump = YAML::Dump( $node );
+use ExtUtils::MakeMaker 6.30;
 
-  $dump =~ s/^(.*)$/\t\$(NOECHO) \$(ECHO) "$1" >>META.yml/gm;
-  $dump =~ s/>>META\.yml/>META.yml/;
 
-  return "metafile:\n$dump";
+
+my %WriteMakefileArgs = (
+  "ABSTRACT" => "simple and intuitive interface for manipulating graph",
+  "AUTHOR" => "Alexis Sukrieh <sukria\@sukria.net>",
+  "BUILD_REQUIRES" => {},
+  "CONFIGURE_REQUIRES" => {
+    "ExtUtils::MakeMaker" => "6.30"
+  },
+  "DISTNAME" => "Graph-Simple",
+  "EXE_FILES" => [],
+  "LICENSE" => "perl",
+  "NAME" => "Graph::Simple",
+  "PREREQ_PM" => {},
+  "TEST_REQUIRES" => {},
+  "VERSION" => "0.01",
+  "test" => {
+    "TESTS" => "t/*.t t/Graph/*.t"
+  }
+);
+
+
+unless ( eval { ExtUtils::MakeMaker->VERSION(6.63_03) } ) {
+  my $tr = delete $WriteMakefileArgs{TEST_REQUIRES};
+  my $br = $WriteMakefileArgs{BUILD_REQUIRES};
+  for my $mod ( keys %$tr ) {
+    if ( exists $br->{$mod} ) {
+      $br->{$mod} = $tr->{$mod} if $tr->{$mod} > $br->{$mod};
+    }
+    else {
+      $br->{$mod} = $tr->{$mod};
+    }
+  }
 }
 
-WriteMakefile(
-    NAME              => 'Graph::Simple',
-    VERSION_FROM      => 'lib/Graph/Simple.pm', # finds $VERSION
-    PREREQ_PM         => {
-#	Graph::Layout::Aesthetic => 0.08,
-	Graph => 0.65,
-	Pod::Simple => 3.02,
-	},
-    ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/Graph/Simple.pm', # retrieve abstract from module
-       AUTHOR         => 'Tels <nospam-abuse@bloodgate.com>') : ()),
-);
+unless ( eval { ExtUtils::MakeMaker->VERSION(6.56) } ) {
+  my $br = delete $WriteMakefileArgs{BUILD_REQUIRES};
+  my $pp = $WriteMakefileArgs{PREREQ_PM};
+  for my $mod ( keys %$br ) {
+    if ( exists $pp->{$mod} ) {
+      $pp->{$mod} = $br->{$mod} if $br->{$mod} > $pp->{$mod};
+    }
+    else {
+      $pp->{$mod} = $br->{$mod};
+    }
+  }
+}
+
+delete $WriteMakefileArgs{CONFIGURE_REQUIRES}
+  unless eval { ExtUtils::MakeMaker->VERSION(6.52) };
+
+WriteMakefile(%WriteMakefileArgs);
+
+
+

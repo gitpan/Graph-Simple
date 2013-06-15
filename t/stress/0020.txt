@@ -1,6 +1,0 @@
-# bend edges with labels
-
- [ Ahrweiler ] -> [ Lahn ]
- [ Lahn ] -> [ Lahnstein ]
- [ Lahnstein ] -Eifel-> [ Ahrweiler ]
-

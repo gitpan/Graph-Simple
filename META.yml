@@ -1,11 +1,19 @@
---- #YAML:1.0
+---
+abstract: 'simple and intuitive interface for manipulating graph'
+author:
+  - 'Alexis Sukrieh <sukria@sukria.net>'
+build_requires: {}
+configure_requires:
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.300034, CPAN::Meta::Converter version 2.120921'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
 name: Graph-Simple
-version: 0.17
-version_from: lib/Graph/Simple.pm
-license: gpl
-distribution_type: module
-generated_by: Graph-Simple version 0.17
-installdirs: site
-requires:
-  Graph: 0.65
-  Pod::Simple: 3.02
+resources:
+  bugtracker: https://github.com/sukria/Graph-Simple/issues
+  homepage: https://github.com/sukria/Graph-Simple/wiki
+  repository: git://github.com/sukria/Graph-Simple.git
+version: 0.01

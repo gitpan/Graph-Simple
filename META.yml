@@ -16,4 +16,4 @@ resources:
   bugtracker: https://github.com/sukria/Graph-Simple/issues
   homepage: https://github.com/sukria/Graph-Simple/wiki
   repository: git://github.com/sukria/Graph-Simple.git
-version: 0.01
+version: 0.02

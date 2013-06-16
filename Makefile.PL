@@ -19,9 +19,16 @@ my %WriteMakefileArgs = (
   "EXE_FILES" => [],
   "LICENSE" => "perl",
   "NAME" => "Graph::Simple",
-  "PREREQ_PM" => {},
-  "TEST_REQUIRES" => {},
-  "VERSION" => "0.02",
+  "PREREQ_PM" => {
+    "Carp" => 0,
+    "Moo" => 0
+  },
+  "TEST_REQUIRES" => {
+    "Test::More" => 0,
+    "strict" => 0,
+    "warnings" => 0
+  },
+  "VERSION" => "0.03",
   "test" => {
     "TESTS" => "t/*.t t/Graph/*.t"
   }

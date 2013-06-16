@@ -287,7 +287,7 @@ Graph::Simple - simple and intuitive interface for manipulating graph
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 DESCRIPTION
 
@@ -306,7 +306,7 @@ See L<Wikipedia|http://en.wikipedia.org/wiki/Graph_(abstract_data_type)> for
 more details about the theory.
 
 This class provides an easy to use and intuitive API for manipulating graphs in
-Perl. It's a native Perl implementation and has no external dependencies.
+Perl. It's a native Perl implementation based on L<Moo>.
 
 =head1 ATTRIBUTES
 
@@ -430,7 +430,7 @@ Dijkstra algorithm to compute the shortest path.
 =head1 SEE ALSO
 
 This distribution has been written because when I looked on CPAN for an easy to
-use and lightweight interface for manipulating Graph in Perl, I dind't find
+use and lightweight interface for manipulating graphs in Perl, I dind't find
 something that fitted my expectations.
 
 Other distributions exist though:

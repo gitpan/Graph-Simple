@@ -60,6 +60,25 @@ sub _add_edge {
 }
 
 
+sub delete_edge {
+    my ( $self, $u, $v ) = @_;
+
+    $self->_delete_edge( $u, $v );
+    $self->_delete_edge( $v, $u ) if !$self->is_directed;
+}
+
+sub _delete_edge {
+    my ( $self, $u, $v ) = @_;
+
+    my @neighbors = $self->neighbors($u);
+    my @new;
+    foreach my $e (@neighbors) {
+        push @new, $e if $e ne $v;
+    }
+    $self->_adjencies->{$u} = \@new;
+}
+
+
 sub neighbors {
     my ( $self, $v ) = @_;
 
@@ -71,8 +90,19 @@ sub neighbors {
 
 
 sub weight {
+    my ( $self, $u, $v, $w ) = @_;
+    if ( @_ == 3 ) {
+        return $self->_weights->{$u}->{$v};
+    }
+    else {
+        $self->_weights->{$u}->{$v} = $w;
+    }
+}
+
+
+sub is_adjacent {
     my ( $self, $u, $v ) = @_;
-    return $self->_weights->{$u}->{$v};
+    return grep {/^$v$/} @{ $self->_adjencies->{$u} };
 }
 
 
@@ -287,7 +317,7 @@ Graph::Simple - simple and intuitive interface for manipulating graph
 
 =head1 VERSION
 
-version 0.03
+version 0.04
 
 =head1 DESCRIPTION
 
@@ -338,17 +368,34 @@ argument
 
     $g->add_edge("Foo", "Bar", 3);
 
-=head2 neighbors
+=head2 delete_edge
 
-Return the array of neighbors for the given vertex
+    $g->delete_edge(x, y)
+
+Removes the edge from x to y, if it is there.
+
+=head2 neighbors
 
     my @neighbors = $g->neighbors('u');
 
+Lists all vertices y such that there is an edge from x to y.
+
 =head2 weight
 
-Return the weight of the edge
+Accessor to the weight of the edge. If called with two arguments, return the
+value previously set, with three arguments, set the weight:
 
+    # reader
     my $w = $g->weight('u', 'v');
+
+    # setter
+    $g->weight('u', 'v', 42);
+
+=head2 is_adjacent
+
+    $g->is_adjacent(x, y)
+
+Tests whether there is an edge from node x to node y.
 
 =head2 breadth_first_search
 

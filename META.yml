@@ -9,7 +9,7 @@ build_requires:
 configure_requires:
   ExtUtils::MakeMaker: 6.30
 dynamic_config: 0
-generated_by: 'Dist::Zilla version 4.300034, CPAN::Meta::Converter version 2.120921'
+generated_by: 'Dist::Zilla version 4.300035, CPAN::Meta::Converter version 2.120921'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -22,4 +22,4 @@ resources:
   bugtracker: https://github.com/sukria/Graph-Simple/issues
   homepage: https://github.com/sukria/Graph-Simple/wiki
   repository: git://github.com/sukria/Graph-Simple.git
-version: 0.03
+version: 0.04
